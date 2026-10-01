@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "Northstar School",
+    "slug": "northstar-school-lms",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": { "backgroundColor": "#f4f7fb" },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.schoollms.northstar"
+    },
+    "android": {
+      "package": "com.schoollms.northstar",
+      "adaptiveIcon": { "backgroundColor": "#102a43" }
+    },
+    "plugins": ["expo-secure-store"]
+  }
+}

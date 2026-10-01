@@ -1,0 +1,53 @@
+.env
+**/.env
+.env.*
+!.env.example
+!.env.*.example
+**/.env.local
+application-local.yml
+**/application-local.yml
+
+# Secrets and local machine credentials
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+*.jks
+local.properties
+credentials.json
+secrets.*
+
+# IDE and editor state
+.idea/
+.vscode/
+*.iml
+.fleet/
+
+# Build outputs and installed dependencies
+node_modules/
+target/
+build/
+dist/
+*.apk
+*.aab
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+.DS_Store
+
+# Android generated files (keep source project and Gradle wrapper)
+**/android/.gradle/
+**/android/.kotlin/
+**/android/build/
+**/android/app/build/
+**/android/.cxx/
+**/android/app/.cxx/
+**/android/captures/
+
+.tools/
+.expo-home/
+.npm-cache/
+**/.expo/
+backend/uploads/
