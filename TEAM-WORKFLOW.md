@@ -8,46 +8,29 @@ This project uses a shared integration branch and short-lived feature branches. 
 - `develop`: integration branch for completed/reviewed features.
 - `feature/<short-name>`: one developer's task branch, branched from `develop`.
 
-Use pull requests into `develop`. Test the integration branch before creating a pull request from `develop` to `main` for a production release. Protect `main` in GitHub with pull-request review and status checks after the repository is created.
+Use pull requests into `develop`. Test the integration branch before creating a pull request from `develop` to `main` for a production release. Keep `main` protected in GitHub with pull-request review and status checks.
 
-## Initial local repository setup
+## Current repository setup
 
-The repository is initialized locally on `main`; no remote is configured and nothing has been pushed. Before making the first commit, set your real author identity locally and inspect the staged file list. Never stage `.env` files, database exports, API keys, signing keys, or generated APKs.
+This repository has a `develop` integration branch and an `origin` Git remote. Check both before pushing so the team uses the configured repository. Never stage `.env` files, database exports, API keys, signing keys, or generated APKs.
 
 ```powershell
-cd "D:\student app"
-git config --local user.name "Your Name"
-git config --local user.email "you@example.com"
-git status --short --ignored
-git add -A
+git remote -v
+git branch --show-current
 git status --short
-git commit -m "Prepare existing School LMS project"
-git switch -c develop
 ```
 
-The name and email above are examples for commands only; replace them with the contributor's Git author identity. Confirm no secret or local config is staged before committing. `.gitignore` already excludes local `.env` files.
+If Git does not know your author identity, configure your own name and email locally. Review the exact staged file list before each commit. `.gitignore` excludes local `.env` files, but still verify that no secret or local config is staged.
 
-## Create the GitHub repository (when ready)
+## Repository hosting
 
-No GitHub account or remote is connected by this preparation. After creating an empty private repository in GitHub, use its real URL:
+The existing `origin` remote points to the team's GitHub repository. Confirm its URL with `git remote get-url origin`. A maintainer must grant each teammate repository access before they can clone or push.
 
 ```powershell
-$Remote = Read-Host "Paste the real GitHub repository URL"
-git remote add origin $Remote
-git push -u origin main
-git push -u origin develop
+git remote get-url origin
 ```
 
-Alternatively, if GitHub CLI is installed and authenticated, create the private repository without pushing automatically, then use the explicit pushes above:
-
-```powershell
-$Repo = Read-Host "Enter GitHub owner/repository"
-gh repo create $Repo --private --source . --remote origin
-git push -u origin main
-git push -u origin develop
-```
-
-This guide does not run those commands or contact GitHub.
+Do not add another `origin` unless the current remote was intentionally removed.
 
 ## Developer workflow
 
@@ -60,11 +43,11 @@ git pull --ff-only origin develop
 git switch -c feature/my-change
 ```
 
-After making and checking changes:
+After making and checking changes on a feature branch:
 
 ```powershell
 git status --short
-git add -A
+git add -- path\to\reviewed-file another\reviewed-file
 git diff --cached
 git commit -m "Describe change"
 git push -u origin feature/my-change
@@ -95,7 +78,7 @@ git pull --ff-only origin develop
 git switch -c feature/my-change
 ```
 
-Each developer creates their own ignored local environment files from the checked-in `.env.example` templates, installs dependencies with `npm ci`, and uses the shared development MySQL/API only if the team has intentionally configured access. Never share production passwords in chat or commit them.
+Each developer creates their own ignored local environment files from the checked-in `.env.example` templates, installs dependencies with `npm ci`, and uses a local or explicitly shared development MySQL/API. Never share production passwords in chat or commit them. When an admin adds a student, the form also creates that student's login using the entered email and initial password; parent and teacher accounts are created from the account directory.
 
 For a fresh clone, the template copies are:
 

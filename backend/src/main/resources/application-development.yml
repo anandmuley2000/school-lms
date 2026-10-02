@@ -2,16 +2,41 @@ server:
   port: ${PORT:8080}
 spring:
   datasource:
+<<<<<<< Updated upstream
     url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:school_lms}?createDatabaseIfNotExist=true&sslMode=DISABLED&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:root}
+=======
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+>>>>>>> Stashed changes
   jpa:
     hibernate:
       ddl-auto: update
+    show-sql: false
+    open-in-view: false
+
+  sql:
+    init:
+      mode: never
+
+server:
+  port: ${PORT:8080}
+  address: 0.0.0.0
+
 app:
   jwt:
+<<<<<<< Updated upstream
     secret: ${JWT_SECRET:dev-secret-key-must-be-at-least-32-characters-long-for-hs256!}
+=======
+    secret: ${JWT_SECRET}
+
+>>>>>>> Stashed changes
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:19006,http://127.0.0.1:19006}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:*}
+
   demo:
-    reset-enabled: ${DEMO_RESET_ENABLED:true}
+    reset-enabled: ${DEMO_RESET_ENABLED:false}

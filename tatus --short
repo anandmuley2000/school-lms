@@ -1,0 +1,30 @@
+warning: in the working copy of '.env.example', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'DEPLOYMENT.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'README.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'TEAM-WORKFLOW.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'admin/src/App.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/.env.production.example', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/main/java/com/schoollms/api/StudentController.java', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/main/java/com/schoollms/api/StudentRequest.java', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/main/java/com/schoollms/config/SecurityConfig.java', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/main/java/com/schoollms/security/JwtService.java', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/src/test/java/com/schoollms/security/JwtServiceTest.java', LF will be replaced by CRLF the next time Git touches it
+ .env.example                                       |  21 [32m+[m[31m-[m
+ DEPLOYMENT.md                                      | 149 [32m++[m[31m--[m
+ README.md                                          | 146 [32m++[m[31m--[m
+ TEAM-WORKFLOW.md                                   |  43 [32m+[m[31m-[m
+ admin/.env.example                                 |   2 [32m+[m[31m-[m
+ admin/.env.production.example                      |   2 [32m+[m[31m-[m
+ admin/package-lock.json                            | 960 [32m++++++++++++++++++++[m[31m-[m
+ admin/package.json                                 |   3 [32m+[m[31m-[m
+ admin/src/App.tsx                                  |  38 [32m+[m[31m-[m
+ backend/.env.production.example                    |  13 [32m+[m[31m-[m
+ .../java/com/schoollms/api/StudentController.java  |  24 [32m+[m[31m-[m
+ .../java/com/schoollms/api/StudentRequest.java     |   4 [32m+[m[31m-[m
+ .../java/com/schoollms/config/SecurityConfig.java  |   5 [32m+[m[31m-[m
+ .../java/com/schoollms/security/JwtService.java    |   6 [32m+[m[31m-[m
+ .../src/main/resources/application-development.yml |  25 [32m+[m[31m-[m
+ .../src/main/resources/application-production.yml  |  43 [32m+[m[31m-[m
+ backend/src/main/resources/application.yml         |  20 [32m+[m[31m-[m
+ .../com/schoollms/security/JwtServiceTest.java     |   5 [32m+[m
+ 18 files changed, 1284 insertions(+), 225 deletions(-)

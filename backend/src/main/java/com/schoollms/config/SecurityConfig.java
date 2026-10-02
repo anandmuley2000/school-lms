@@ -74,14 +74,11 @@ public class SecurityConfig {
             .map(String::trim)
             .filter(origin -> !origin.isEmpty())
             .toList();
-    if (origins.isEmpty()) {
-      throw new IllegalStateException("At least one CORS origin must be configured");
-    }
     if (environment.acceptsProfiles(Profiles.of("production"))
         && origins.stream()
             .anyMatch(origin -> origin.equals("*") || !origin.startsWith("https://"))) {
       throw new IllegalStateException(
-          "Production CORS origins must be explicit HTTPS origins; wildcards are not allowed");
+          "CORS_ALLOWED_ORIGINS must contain only explicit HTTPS origins in production; wildcards are not allowed");
     }
     c.setAllowedOrigins(origins);
     c.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));

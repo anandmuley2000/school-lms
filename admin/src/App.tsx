@@ -515,7 +515,11 @@ export default function App() {
           onSaved={async () => {
             setEdit(null);
             await reload();
-            setToast("Student record saved.");
+            setToast(
+              edit.id === 0
+                ? "Student and login account created. Share the initial password securely."
+                : "Student record updated.",
+            );
           }}
         />
       )}
@@ -2006,6 +2010,8 @@ function StudentEditor({
   onSaved: () => void;
 }) {
   const [form, setForm] = useState({ ...student }),
+    [studentLoginEmail, setStudentLoginEmail] = useState(""),
+    [studentInitialPassword, setStudentInitialPassword] = useState(""),
     [error, setError] = useState(""),
     [saving, setSaving] = useState(false);
   function change(k: keyof Student, v: string | number) {
@@ -2027,6 +2033,7 @@ function StudentEditor({
         phone: form.phone,
         address: form.address,
         status: form.status,
+        ...(!student.id ? { studentLoginEmail, studentInitialPassword } : {}),
       };
       await api(student.id ? `/students/${student.id}` : "/students", {
         method: student.id ? "PUT" : "POST",
@@ -2133,6 +2140,35 @@ function StudentEditor({
               placeholder="parent@schooldemo.com"
             />
           </label>
+          {!student.id && (
+            <>
+              <label>
+                Student login email
+                <input
+                  type="email"
+                  value={studentLoginEmail}
+                  onChange={(e) => setStudentLoginEmail(e.target.value)}
+                  autoComplete="email"
+                  required
+                />
+              </label>
+              <label>
+                Initial password
+                <input
+                  type="password"
+                  value={studentInitialPassword}
+                  onChange={(e) => setStudentInitialPassword(e.target.value)}
+                  autoComplete="new-password"
+                  minLength={8}
+                  required
+                />
+              </label>
+              <p className="wide">
+                Give the student this email and initial password to sign in. They will see the
+                Student dashboard.
+              </p>
+            </>
+          )}
           <label>
             Phone
             <input
