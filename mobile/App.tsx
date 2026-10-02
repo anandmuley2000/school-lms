@@ -232,7 +232,7 @@ export default function App() {
           <View style={styles.logo}>
             <Text style={styles.logoText}>N</Text>
           </View>
-          <Text style={styles.kicker}>NORTHSTAR SCHOOL</Text>
+          <Text style={styles.kicker}>ABC SCHOOL</Text>
           <Text style={styles.title}>Welcome back</Text>
           <Text style={styles.muted}>Sign in to your school account.</Text>
           <TextInput
@@ -262,7 +262,7 @@ export default function App() {
           </Pressable>
           {IS_DEVELOPMENT_BUILD && (
             <>
-              <Text style={styles.sectionLabel}>DEMO ACCOUNTS · TAP TO FILL</Text>
+              <Text style={styles.sectionLabel}></Text>
               <View style={styles.demoRow}>
                 {demos.map((d) => (
                   <Pressable
@@ -293,7 +293,7 @@ export default function App() {
       <StatusBar barStyle="dark-content" />
       <View style={styles.top}>
         <View>
-          <Text style={styles.kicker}>NORTHSTAR SCHOOL</Text>
+          <Text style={styles.kicker}>ABC SCHOOL</Text>
           <Text style={styles.topTitle}>{user.name}</Text>
         </View>
         <Pressable style={styles.avatar} onPress={() => setTab("Profile")}>
