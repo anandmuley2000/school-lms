@@ -3,6 +3,7 @@ import Constants from "expo-constants";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   RefreshControl,
@@ -17,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import {
   api,
   AttendanceRecord,
+  BusRoute,
   clearToken,
   Fee,
   Homework,
@@ -43,7 +45,8 @@ type Tab =
   | "Fees"
   | "Messages"
   | "Events"
-  | "Leave";
+  | "Leave"
+  | "Bus Tracking";
 const IS_DEVELOPMENT_BUILD =
   process.env.EXPO_PUBLIC_APP_ENV === "development" ||
   Constants.expoConfig?.extra?.environment === "development";
@@ -59,6 +62,9 @@ export default function App() {
     [email, setEmail] = useState(IS_DEVELOPMENT_BUILD ? "admin@schooldemo.com" : ""),
     [password, setPassword] = useState(IS_DEVELOPMENT_BUILD ? "Admin@123" : ""),
     [students, setStudents] = useState<Student[]>([]),
+    [busRoutes, setBusRoutes] = useState<BusRoute[]>([]),
+    [busError, setBusError] = useState(""),
+    [selectedBusId, setSelectedBusId] = useState<number | null>(null),
     [homework, setHomework] = useState<Homework[]>([]),
     [notes, setNotes] = useState<Note[]>([]),
     [results, setResults] = useState<Result[]>([]),
@@ -118,6 +124,21 @@ export default function App() {
       setError(e instanceof Error ? e.message : "Could not load data");
     }
   }, [user, markId]);
+  const loadBusRoutes = useCallback(async () => {
+    if (!user) return;
+    try {
+      const routes = await api<BusRoute[]>("/bus-routes");
+      setBusRoutes(routes);
+      setSelectedBusId((current) =>
+        current != null && routes.some((route) => route.id === current)
+          ? current
+          : routes[0]?.id ?? null,
+      );
+      setBusError("");
+    } catch (e) {
+      setBusError(e instanceof Error ? e.message : "Could not load bus routes");
+    }
+  }, [user]);
   useEffect(() => {
     setUnauthorizedHandler(() => {
       setUser(null);
@@ -151,6 +172,15 @@ export default function App() {
   useEffect(() => {
     load();
   }, [load]);
+  useEffect(() => {
+    if (!user) return;
+    void loadBusRoutes();
+  }, [user, loadBusRoutes]);
+  useEffect(() => {
+    if (!user || tab !== "Bus Tracking") return;
+    const timer = setInterval(() => void loadBusRoutes(), 15_000);
+    return () => clearInterval(timer);
+  }, [user, tab, loadBusRoutes]);
   async function login(e = email, p = password) {
     setBusy(true);
     setError("");
@@ -170,7 +200,7 @@ export default function App() {
   }
   async function refresh() {
     setRefreshing(true);
-    await load();
+    await Promise.all([load(), loadBusRoutes()]);
     setRefreshing(false);
   }
   async function mark() {
@@ -284,10 +314,10 @@ export default function App() {
     );
   const tabs: Tab[] =
       user.role === "TEACHER"
-      ? ["Home", "Attendance", "Homework", "Events", "Leave", "Updates", "Profile"]
+      ? ["Home", "Attendance", "Homework", "Events", "Leave", "Bus Tracking", "Updates", "Profile"]
       : user.role === "ADMIN"
-        ? ["Home", "Students", "Attendance", "Events", "Leave", "Updates", "Profile"]
-        : ["Home", "Students", "Homework", "Events", "Leave", "Updates", "Profile"];
+        ? ["Home", "Students", "Attendance", "Events", "Leave", "Bus Tracking", "Updates", "Profile"]
+        : ["Home", "Students", "Homework", "Events", "Leave", "Bus Tracking", "Updates", "Profile"];
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" />
@@ -464,6 +494,15 @@ export default function App() {
             {events.map((event) => <View key={event.id} style={styles.card}><Text style={styles.cardTitle}>{event.title}</Text><Text style={styles.cardText}>{event.description}</Text><Text style={styles.role}>{event.eventDate} · {event.location || "School"}</Text></View>)}
           </Section>
         )}
+        {tab === "Bus Tracking" && (
+          <BusTracking
+            routes={busRoutes}
+            selectedBusId={selectedBusId}
+            onSelect={setSelectedBusId}
+            error={busError}
+            onRefresh={loadBusRoutes}
+          />
+        )}
         {tab === "Leave" && (
           <>
             {user.role !== "ADMIN" && <Section title="Request leave">
@@ -550,18 +589,18 @@ export default function App() {
           </Section>
         )}
       </ScrollView>
-      <View style={styles.nav}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.nav} contentContainerStyle={styles.navContent}>
         {tabs.map((t, i) => (
           <Pressable key={t} style={styles.navItem} onPress={() => setTab(t)}>
             <Text style={[styles.navIcon, tab === t && styles.navActive]}>
-              {({ Home: "⌂", Students: "♙", Homework: "▧", Updates: "◉", Profile: "○", Attendance: "✓", Events: "☆", Leave: "✉", Results: "◈", Fees: "₹", Messages: "✉" } as Record<Tab, string>)[t]}
+              {({ Home: "⌂", Students: "♙", Homework: "▧", Updates: "◉", Profile: "○", Attendance: "✓", Events: "☆", Leave: "✉", Results: "◈", Fees: "₹", Messages: "✉", "Bus Tracking": "🚌" } as Record<Tab, string>)[t]}
             </Text>
             <Text style={[styles.navText, tab === t && styles.navActive]}>
               {t}
             </Text>
           </Pressable>
         ))}
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -571,6 +610,94 @@ function Stat({ label, value }: { label: string; value: number }) {
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
+  );
+}
+function BusTracking({
+  routes,
+  selectedBusId,
+  onSelect,
+  error,
+  onRefresh,
+}: {
+  routes: BusRoute[];
+  selectedBusId: number | null;
+  onSelect: (id: number) => void;
+  error: string;
+  onRefresh: () => Promise<void>;
+}) {
+  const selected = routes.find((route) => route.id === selectedBusId) ?? routes[0];
+  const stops = selected?.stops?.split(",").map((stop) => stop.trim()).filter(Boolean) ?? [];
+  return (
+    <>
+      <Section title="School bus tracking">
+        <Text style={styles.muted}>
+          Bus information refreshes automatically every 15 seconds while this screen is open. Pull down to refresh anytime.
+        </Text>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {!error && routes.length === 0 ? (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>No buses configured</Text>
+            <Text style={styles.cardText}>Bus routes will appear here when the school adds them.</Text>
+          </View>
+        ) : null}
+        {routes.map((route) => (
+          <Pressable
+            key={route.id}
+            style={[styles.card, selected?.id === route.id && styles.busSelected]}
+            onPress={() => onSelect(route.id)}
+          >
+            <View style={styles.cardTop}>
+              <Text style={styles.cardTitle}>{route.busNumber}</Text>
+              <Text style={styles.role}>{route.status.replaceAll("_", " ")}</Text>
+            </View>
+            <Text style={styles.cardText}>{route.routeName}</Text>
+            <Text style={styles.cardText}>Current stop: {route.currentStop || "Not reported"}</Text>
+          </Pressable>
+        ))}
+      </Section>
+      {selected ? (
+        <Section title={`${selected.busNumber} · ${selected.routeName}`}>
+          <View style={styles.card}>
+            <View style={styles.busStatusRow}>
+              <View style={[styles.busDot, { backgroundColor: selected.status === "IN_TRANSIT" ? "#31a477" : "#9aa8b5" }]} />
+              <Text style={styles.cardTitle}>{selected.status.replaceAll("_", " ")}</Text>
+            </View>
+            <Text style={styles.cardText}>Current stop: {selected.currentStop || "Not reported"}</Text>
+            <Text style={styles.cardText}>Speed: {selected.speedKmvh ?? "—"} km/h</Text>
+            <Text style={styles.cardText}>Driver: {selected.driverName || "Not listed"}</Text>
+            {selected.driverPhone ? (
+              <Pressable onPress={() => void Linking.openURL(`tel:${selected.driverPhone}`)}>
+                <Text style={styles.busLink}>Call driver · {selected.driverPhone}</Text>
+              </Pressable>
+            ) : null}
+            {selected.latitude != null && selected.longitude != null ? (
+              <>
+                <Text style={styles.cardText}>Location: {selected.latitude.toFixed(5)}, {selected.longitude.toFixed(5)}</Text>
+                <Pressable onPress={() => void Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${selected.latitude},${selected.longitude}`)}>
+                  <Text style={styles.busLink}>Open location in Maps</Text>
+                </Pressable>
+              </>
+            ) : (
+              <Text style={styles.cardText}>Location has not been reported.</Text>
+            )}
+            <Text style={styles.role}>
+              Last update: {selected.lastUpdated ? new Date(selected.lastUpdated).toLocaleString() : "Unknown"}
+            </Text>
+          </View>
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Route stops</Text>
+            {stops.length ? stops.map((stop, index) => (
+              <Text key={`${index}-${stop}`} style={[styles.cardText, stop === selected.currentStop && styles.busCurrentStop]}>
+                {stop === selected.currentStop ? "●  " : "○  "}{stop}{stop === selected.currentStop ? " · Current" : ""}
+              </Text>
+            )) : <Text style={styles.cardText}>No stops listed.</Text>}
+          </View>
+          <Pressable style={styles.outlineButton} onPress={() => void onRefresh()}>
+            <Text style={styles.outlineText}>Refresh bus location</Text>
+          </Pressable>
+        </Section>
+      ) : null}
+    </>
   );
 }
 function Section({
@@ -801,6 +928,11 @@ const styles = StyleSheet.create({
     borderColor: "#edf0f4",
     marginBottom: 8,
   },
+  busSelected: { borderColor: "#77a4da", backgroundColor: "#f2f7ff" },
+  busStatusRow: { flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 },
+  busDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: "#31a477" },
+  busLink: { color: "#377bd2", fontSize: 12, fontWeight: "700", marginTop: 10 },
+  busCurrentStop: { color: "#23815e", fontWeight: "700" },
   cardTop: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -811,18 +943,23 @@ const styles = StyleSheet.create({
   role: { fontSize: 9, color: "#4c80c4", marginTop: 7, fontWeight: "700" },
   nav: {
     height: 61,
+    flexGrow: 0,
     backgroundColor: "white",
     borderTopWidth: 1,
     borderTopColor: "#e9edf2",
+  },
+  navContent: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
+    paddingHorizontal: 4,
   },
   navItem: {
     alignItems: "center",
     justifyContent: "center",
     gap: 3,
     minWidth: 49,
+    paddingHorizontal: 3,
   },
   navIcon: { fontSize: 17, color: "#94a1ad" },
   navText: { fontSize: 9, color: "#94a1ad" },

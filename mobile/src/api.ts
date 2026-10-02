@@ -13,6 +13,21 @@ export type User = {
   name: string;
   role: "ADMIN" | "TEACHER" | "PARENT" | "STUDENT";
 };
+export type BusRoute = {
+  id: number;
+  busNumber: string;
+  routeName: string;
+  driverName: string;
+  driverPhone: string;
+  capacity: number | null;
+  status: string;
+  latitude: number | null;
+  longitude: number | null;
+  speedKmvh: number | null;
+  currentStop: string | null;
+  stops: string | null;
+  lastUpdated: string;
+};
 export type Student = {
   id: number;
   studentCode: string;

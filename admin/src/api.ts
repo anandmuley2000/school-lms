@@ -93,6 +93,21 @@ export type SchoolEvent = {
   location: string;
   createdBy: string;
 };
+export type BusRoute = {
+  id: number;
+  busNumber: string;
+  routeName: string;
+  driverName: string;
+  driverPhone: string;
+  capacity: number;
+  status: string;
+  latitude: number;
+  longitude: number;
+  speedKmvh: number;
+  currentStop: string;
+  stops: string;
+  lastUpdated: string;
+};
 export type LeaveApplication = {
   id: number;
   studentId: number | null;

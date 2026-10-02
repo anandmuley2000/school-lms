@@ -3,6 +3,7 @@ import {
   Account,
   api,
   AttendanceRecord,
+  BusRoute,
   clearToken,
   Fee,
   Homework,
@@ -28,7 +29,8 @@ type Page =
   | "Notifications"
   | "People"
   | "Events"
-  | "Leave";
+  | "Leave"
+  | "Bus Tracking";
 const nav: Page[] = [
   "Overview",
   "Students",
@@ -41,6 +43,7 @@ const nav: Page[] = [
   "People",
   "Events",
   "Leave",
+  "Bus Tracking",
 ];
 const demos = [
   ["ADMIN", "admin@schooldemo.com", "Admin@123"],
@@ -60,6 +63,7 @@ export default function App() {
     [messages, setMessages] = useState<Message[]>([]),
     [events, setEvents] = useState<SchoolEvent[]>([]),
     [leaveRequests, setLeaveRequests] = useState<LeaveApplication[]>([]),
+    [busRoutes, setBusRoutes] = useState<BusRoute[]>([]),
     [summary, setSummary] = useState<Record<string, number>>({}),
     [query, setQuery] = useState(""),
     [busy, setBusy] = useState(false),
@@ -79,6 +83,7 @@ export default function App() {
         api<Message[]>("/messages").then(setMessages),
         api<SchoolEvent[]>("/events").then(setEvents),
         api<LeaveApplication[]>("/leave-requests").then(setLeaveRequests),
+        api<BusRoute[]>("/bus-routes").then(setBusRoutes),
       ];
       if (user.role === "ADMIN")
         tasks.push(
@@ -152,7 +157,7 @@ export default function App() {
               onClick={() => setPage(item)}
             >
               <span className="nav-icon">
-                {["◫", "▤", "✓", "▧", "⌁", "₹", "✉", "◉", "♙", "◷", "▣"][i]}
+                {["◫", "▤", "✓", "▧", "⌁", "₹", "✉", "◉", "♙", "◷", "▣", "🚌"][i]}
               </span>
               {item}
               {item === "Notifications" &&
@@ -427,6 +432,16 @@ export default function App() {
               }}
             />
           )}
+          {page === "Bus Tracking" && (
+            <BusTrackingPage
+              user={user}
+              items={busRoutes}
+              onSaved={async () => {
+                await reload();
+                setToast("Bus routes updated.");
+              }}
+            />
+          )}
           {page === "Notifications" && (
             <div className="list-card">
               <div className="table-head">
@@ -646,7 +661,6 @@ function EventsPage({
     </div>
   );
 }
-
 function LeavePage({
   user,
   items,
@@ -2159,6 +2173,506 @@ function StudentEditor({
           <button className="primary" disabled={saving}>
             {saving ? "Saving…" : "Save record"}
           </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+// ─── Bus Tracking Page ──────────────────────────────────────────────────────
+
+function BusTrackingPage({
+  user,
+  items,
+  onSaved,
+}: {
+  user: User;
+  items: BusRoute[];
+  onSaved: () => void;
+}) {
+  const [editBus, setEditBus] = useState<BusRoute | null>(null);
+  const [selectedBus, setSelectedBus] = useState<BusRoute | null>(items[0] ?? null);
+  const [locBusy, setLocBusy] = useState(false);
+  const [locError, setLocError] = useState("");
+
+  // Keep selectedBus in sync as items refresh
+  const activeBus = items.find((b) => b.id === selectedBus?.id) ?? items[0] ?? null;
+
+  const statusColor = (s: string) =>
+    s === "IN_TRANSIT" ? "#22c55e" : s === "ACTIVE" ? "#3b82f6" : s === "MAINTENANCE" ? "#f59e0b" : "#94a3b8";
+  const statusLabel = (s: string) =>
+    s === "IN_TRANSIT" ? "In Transit" : s === "ACTIVE" ? "At Stop" : s === "MAINTENANCE" ? "Maintenance" : "Inactive";
+
+  async function simulateLocationUpdate(bus: BusRoute) {
+    setLocBusy(true);
+    setLocError("");
+    try {
+      const offLat = (Math.random() - 0.5) * 0.01;
+      const offLng = (Math.random() - 0.5) * 0.01;
+      const stops = (bus.stops ?? "").split(",").map((s) => s.trim());
+      const randomStop = stops[Math.floor(Math.random() * stops.length)];
+      const speed = Math.round(20 + Math.random() * 40);
+      await api(`/bus-routes/${bus.id}/location`, {
+        method: "PUT",
+        body: JSON.stringify({
+          latitude: +(bus.latitude + offLat).toFixed(6),
+          longitude: +(bus.longitude + offLng).toFixed(6),
+          speedKmvh: speed,
+          currentStop: randomStop,
+        }),
+      });
+      onSaved();
+    } catch (e) {
+      setLocError(e instanceof Error ? e.message : "Update failed");
+    } finally {
+      setLocBusy(false);
+    }
+  }
+
+  const inTransit = items.filter((b) => b.status === "IN_TRANSIT").length;
+  const atStop = items.filter((b) => b.status === "ACTIVE").length;
+  const maintenance = items.filter((b) => b.status === "MAINTENANCE").length;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
+      {/* Stats Row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
+        {[
+          { label: "Total Buses", value: items.length, color: "#6366f1", icon: "🚌" },
+          { label: "In Transit", value: inTransit, color: "#22c55e", icon: "🟢" },
+          { label: "At Stop", value: atStop, color: "#3b82f6", icon: "🔵" },
+          { label: "Maintenance", value: maintenance, color: "#f59e0b", icon: "🟡" },
+        ].map((stat) => (
+          <div
+            key={stat.label}
+            style={{
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              borderRadius: "12px",
+              padding: "1.25rem",
+              display: "flex",
+              alignItems: "center",
+              gap: "1rem",
+            }}
+          >
+            <span style={{ fontSize: "2rem" }}>{stat.icon}</span>
+            <div>
+              <div style={{ fontSize: "1.75rem", fontWeight: 700, color: stat.color, lineHeight: 1 }}>
+                {stat.value}
+              </div>
+              <div style={{ fontSize: "0.75rem", color: "var(--text-dim)", marginTop: "0.25rem" }}>
+                {stat.label}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: "1.5rem" }}>
+        {/* Map Panel */}
+        <div
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "12px",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              padding: "1rem 1.25rem",
+              borderBottom: "1px solid var(--border)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <div>
+              <h3 style={{ margin: 0, fontSize: "1rem" }}>Live Map</h3>
+              <p style={{ margin: 0, fontSize: "0.75rem", color: "var(--text-dim)" }}>
+                {activeBus ? activeBus.routeName : "Select a bus to track"}
+              </p>
+            </div>
+            {user.role === "ADMIN" && activeBus && (
+              <button
+                className="secondary"
+                onClick={() => simulateLocationUpdate(activeBus)}
+                disabled={locBusy}
+                style={{ fontSize: "0.8rem" }}
+              >
+                {locBusy ? "Updating…" : "↻ Simulate Update"}
+              </button>
+            )}
+          </div>
+          {locError && (
+            <div style={{ padding: "0.5rem 1rem", color: "#ef4444", fontSize: "0.8rem" }}>
+              {locError}
+            </div>
+          )}
+          {/* SVG Map Visualization */}
+          <div style={{ position: "relative", background: "#1e293b", minHeight: "360px" }}>
+            <svg
+              viewBox="0 0 700 360"
+              style={{ width: "100%", height: "360px" }}
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              {/* Road grid */}
+              {[60, 160, 260, 360, 460, 560].map((x) => (
+                <line key={`v${x}`} x1={x} y1={0} x2={x} y2={360} stroke="#334155" strokeWidth="1" />
+              ))}
+              {[60, 120, 180, 240, 300].map((y) => (
+                <line key={`h${y}`} x1={0} y1={y} x2={700} y2={y} stroke="#334155" strokeWidth="1" />
+              ))}
+              {/* Main roads */}
+              <line x1={0} y1={180} x2={700} y2={180} stroke="#475569" strokeWidth="6" />
+              <line x1={350} y1={0} x2={350} y2={360} stroke="#475569" strokeWidth="6" />
+              <line x1={0} y1={90} x2={700} y2={90} stroke="#374151" strokeWidth="3" />
+              <line x1={175} y1={0} x2={175} y2={360} stroke="#374151" strokeWidth="3" />
+              <line x1={525} y1={0} x2={525} y2={360} stroke="#374151" strokeWidth="3" />
+              {/* School icon */}
+              <rect x={320} y={152} width={60} height={56} rx={6} fill="#1e40af" opacity={0.9} />
+              <text x={350} y={183} textAnchor="middle" fill="white" fontSize="11" fontWeight="bold">SCHOOL</text>
+              <text x={350} y={198} textAnchor="middle" fill="#93c5fd" fontSize="10">Campus</text>
+              {/* Bus markers */}
+              {items.map((bus) => {
+                // Normalize lat/lng to SVG coords: lat 18.50–18.54 → y 320–40, lng 73.83–73.88 → x 80–620
+                const svgX = Math.max(30, Math.min(670, ((bus.longitude - 73.83) / 0.05) * 540 + 80));
+                const svgY = Math.max(20, Math.min(340, (1 - (bus.latitude - 18.50) / 0.04) * 280 + 40));
+                const isSelected = activeBus?.id === bus.id;
+                return (
+                  <g
+                    key={bus.id}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => setSelectedBus(bus)}
+                  >
+                    {isSelected && (
+                      <circle cx={svgX} cy={svgY} r={22} fill={statusColor(bus.status)} opacity={0.2} />
+                    )}
+                    <circle
+                      cx={svgX}
+                      cy={svgY}
+                      r={14}
+                      fill={statusColor(bus.status)}
+                      stroke={isSelected ? "white" : "transparent"}
+                      strokeWidth={2}
+                    />
+                    <text x={svgX} y={svgY + 5} textAnchor="middle" fill="white" fontSize="11" fontWeight="bold">
+                      🚌
+                    </text>
+                    <text x={svgX} y={svgY + 26} textAnchor="middle" fill="white" fontSize="9" fontWeight="bold">
+                      {bus.busNumber.slice(-4)}
+                    </text>
+                  </g>
+                );
+              })}
+              {items.length === 0 && (
+                <text x={350} y={190} textAnchor="middle" fill="#64748b" fontSize={16}>
+                  No buses available
+                </text>
+              )}
+            </svg>
+            {/* Legend */}
+            <div style={{
+              position: "absolute", bottom: 12, left: 12,
+              background: "rgba(15,23,42,0.85)", borderRadius: "8px", padding: "0.5rem 0.75rem",
+              display: "flex", gap: "1rem", fontSize: "0.7rem", color: "#94a3b8"
+            }}>
+              {[["#22c55e", "In Transit"], ["#3b82f6", "At Stop"], ["#f59e0b", "Maintenance"]].map(([c, l]) => (
+                <span key={l} style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                  <span style={{ width: 10, height: 10, borderRadius: "50%", background: c, display: "inline-block" }} />
+                  {l}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Selected Bus Details */}
+          {activeBus && (
+            <div style={{ padding: "1rem 1.25rem", borderTop: "1px solid var(--border)" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem" }}>
+                {[
+                  ["Route", activeBus.routeName],
+                  ["Current Stop", activeBus.currentStop],
+                  ["Speed", `${activeBus.speedKmvh} km/h`],
+                  ["Driver", activeBus.driverName],
+                  ["Phone", activeBus.driverPhone],
+                  ["Last Update", new Date(activeBus.lastUpdated).toLocaleTimeString()],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <div style={{ fontSize: "0.7rem", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      {label}
+                    </div>
+                    <div style={{ fontSize: "0.875rem", fontWeight: 600, marginTop: "0.2rem" }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ marginTop: "0.75rem" }}>
+                <div style={{ fontSize: "0.7rem", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.3rem" }}>
+                  Stops
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+                  {activeBus.stops.split(",").map((s) => (
+                    <span
+                      key={s}
+                      style={{
+                        padding: "0.2rem 0.6rem",
+                        borderRadius: "999px",
+                        fontSize: "0.75rem",
+                        background: s.trim() === activeBus.currentStop ? "var(--accent)" : "var(--surface-alt)",
+                        color: s.trim() === activeBus.currentStop ? "white" : "var(--text)",
+                        border: "1px solid var(--border)",
+                      }}
+                    >
+                      {s.trim()}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Bus List */}
+        <div
+          style={{
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            borderRadius: "12px",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              padding: "1rem 1.25rem",
+              borderBottom: "1px solid var(--border)",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <h3 style={{ margin: 0, fontSize: "1rem" }}>Fleet ({items.length})</h3>
+            {user.role === "ADMIN" && (
+              <button
+                className="primary"
+                style={{ fontSize: "0.8rem", padding: "0.35rem 0.85rem" }}
+                onClick={() =>
+                  setEditBus({
+                    id: 0,
+                    busNumber: "",
+                    routeName: "",
+                    driverName: "",
+                    driverPhone: "",
+                    capacity: 40,
+                    status: "ACTIVE",
+                    latitude: 18.5204,
+                    longitude: 73.8567,
+                    speedKmvh: 0,
+                    currentStop: "Main Campus",
+                    stops: "Stop 1, Stop 2, Main Campus",
+                    lastUpdated: new Date().toISOString(),
+                  })
+                }
+              >
+                ＋ Add bus
+              </button>
+            )}
+          </div>
+          <div style={{ flex: 1, overflowY: "auto" }}>
+            {items.map((bus) => {
+              const isSelected = activeBus?.id === bus.id;
+              return (
+                <div
+                  key={bus.id}
+                  onClick={() => setSelectedBus(bus)}
+                  style={{
+                    padding: "0.9rem 1.25rem",
+                    borderBottom: "1px solid var(--border)",
+                    cursor: "pointer",
+                    background: isSelected ? "var(--surface-alt)" : "transparent",
+                    transition: "background 0.15s",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.875rem",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: "50%",
+                      background: `${statusColor(bus.status)}22`,
+                      border: `2px solid ${statusColor(bus.status)}`,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: "1.1rem",
+                      flexShrink: 0,
+                    }}
+                  >
+                    🚌
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: "0.875rem", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+                      {bus.busNumber}
+                    </div>
+                    <div style={{ fontSize: "0.75rem", color: "var(--text-dim)", overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+                      {bus.routeName}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", marginTop: "0.2rem" }}>
+                      <span
+                        style={{
+                          width: 7, height: 7, borderRadius: "50%",
+                          background: statusColor(bus.status), display: "inline-block", flexShrink: 0
+                        }}
+                      />
+                      <span style={{ fontSize: "0.7rem", color: statusColor(bus.status) }}>
+                        {statusLabel(bus.status)} · {bus.currentStop}
+                      </span>
+                    </div>
+                  </div>
+                  {user.role === "ADMIN" && (
+                    <button
+                      className="row-action"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditBus(bus);
+                      }}
+                    >
+                      •••
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            {items.length === 0 && (
+              <div className="empty">No buses configured. Add one above.</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {editBus && (
+        <BusEditor
+          bus={editBus}
+          onClose={() => setEditBus(null)}
+          onSaved={() => {
+            setEditBus(null);
+            onSaved();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function BusEditor({
+  bus,
+  onClose,
+  onSaved,
+}: {
+  bus: BusRoute;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const isNew = bus.id === 0;
+  const [form, setForm] = useState({ ...bus });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  function change(k: keyof BusRoute, v: string | number) {
+    setForm((f) => ({ ...f, [k]: v }));
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      if (isNew) {
+        await api("/bus-routes", { method: "POST", body: JSON.stringify(form) });
+      } else {
+        await api(`/bus-routes/${bus.id}`, { method: "PUT", body: JSON.stringify(form) });
+      }
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove() {
+    if (!confirm("Delete this bus route permanently?")) return;
+    setSaving(true);
+    try {
+      await api(`/bus-routes/${bus.id}`, { method: "DELETE" });
+      onSaved();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Delete failed");
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <form
+        className="modal"
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={submit}
+        style={{ maxWidth: 600 }}
+      >
+        <div className="modal-header">
+          <h2>{isNew ? "Add bus route" : "Edit bus route"}</h2>
+          <button type="button" className="close" onClick={onClose}>✕</button>
+        </div>
+        <div className="form-grid">
+          <label>
+            Bus Number
+            <input required value={form.busNumber} onChange={(e) => change("busNumber", e.target.value)} placeholder="MH-12-AB-1001" />
+          </label>
+          <label>
+            Route Name
+            <input required value={form.routeName} onChange={(e) => change("routeName", e.target.value)} placeholder="Route 1 - North District" />
+          </label>
+          <label>
+            Driver Name
+            <input required value={form.driverName} onChange={(e) => change("driverName", e.target.value)} />
+          </label>
+          <label>
+            Driver Phone
+            <input required value={form.driverPhone} onChange={(e) => change("driverPhone", e.target.value)} />
+          </label>
+          <label>
+            Capacity
+            <input type="number" min={1} max={100} required value={form.capacity} onChange={(e) => change("capacity", +e.target.value)} />
+          </label>
+          <label>
+            Status
+            <select value={form.status} onChange={(e) => change("status", e.target.value)}>
+              {["ACTIVE", "IN_TRANSIT", "MAINTENANCE", "INACTIVE"].map((s) => (
+                <option key={s}>{s}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Current Stop
+            <input value={form.currentStop} onChange={(e) => change("currentStop", e.target.value)} />
+          </label>
+          <label className="wide">
+            Stops (comma-separated)
+            <input value={form.stops} onChange={(e) => change("stops", e.target.value)} placeholder="Stop 1, Stop 2, Main Campus" />
+          </label>
+        </div>
+        {error && <div className="form-error">{error}</div>}
+        <div className="modal-actions">
+          {!isNew && (
+            <button className="danger-quiet" type="button" onClick={remove}>Delete route</button>
+          )}
+          <span />
+          <button className="secondary" type="button" onClick={onClose}>Cancel</button>
+          <button className="primary" disabled={saving}>{saving ? "Saving…" : "Save route"}</button>
         </div>
       </form>
     </div>

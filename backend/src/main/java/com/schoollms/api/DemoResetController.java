@@ -27,6 +27,7 @@ public class DemoResetController {
   private final AccountRepository accounts;
   private final SchoolEventRepository events;
   private final LeaveApplicationRepository leaveApplications;
+  private final BusRouteRepository busRoutes;
 
   public DemoResetController(
       List<CommandLineRunner> seeders,
@@ -40,7 +41,8 @@ public class DemoResetController {
       StudentRepository students,
       AccountRepository accounts,
       SchoolEventRepository events,
-      LeaveApplicationRepository leaveApplications) {
+      LeaveApplicationRepository leaveApplications,
+      BusRouteRepository busRoutes) {
     this.seeders = seeders;
     this.notifications = notifications;
     this.messages = messages;
@@ -53,11 +55,13 @@ public class DemoResetController {
     this.accounts = accounts;
     this.events = events;
     this.leaveApplications = leaveApplications;
+    this.busRoutes = busRoutes;
   }
 
   @PostMapping("/reset")
   @Transactional
   public java.util.Map<String, String> reset() throws Exception {
+    busRoutes.deleteAllInBatch();
     leaveApplications.deleteAllInBatch();
     events.deleteAllInBatch();
     notifications.deleteAllInBatch();
