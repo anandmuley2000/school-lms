@@ -1,130 +1,87 @@
-# Deployment preparation
+# Railway deployment guide
 
-This guide prepares the existing LMS for hosting. It does not deploy the backend or admin site, create a production database, or build an APK. No provider, production domain, or production credentials have been selected.
+This guide prepares the existing Spring Boot API for Railway. It keeps the existing MySQL service and preserves the REST API.
 
-## Current architecture
+## Repository configuration
 
-- `backend/`: Spring Boot 3.5, Java 21, MySQL, JPA, Spring Security, JWT.
-- `admin/`: React + Vite static web app.
-- `mobile/`: Expo / React Native Android and iOS app.
-- The admin and mobile clients share the REST API and send JWT bearer tokens.
+- `Dockerfile`: multi-stage Java 21/Maven build and non-root Spring Boot runtime.
+- `railway.json`: Dockerfile builder and `/actuator/health` health check.
+- `application.yml`: common settings, bind address `0.0.0.0`, dynamic PORT with local fallback, development default profile.
+- `application-development.yml`: local MySQL and development-only demo behavior.
+- `application-production.yml`: Railway `SPRING_DATASOURCE_*`, JWT, CORS, and JPA settings.
 
-## Local development
+Railway injects PORT and the application must listen on it for health checks and public HTTP traffic. See [Railway health checks](https://docs.railway.com/deployments/healthchecks) and [Railway config-as-code](https://docs.railway.com/config-as-code/reference).
 
-### Backend
+## Local build
 
-Use the development profile (the default). Copy `backend/.env.example` to `backend/.env` and enter local MySQL settings. Import those values into the current PowerShell session; Spring does not load `.env` files itself:
-
-```powershell
-cd "D:\student app"
-$env:JAVA_HOME = "C:\Program Files\Java\jdk-21"
-Get-Content backend\.env | ForEach-Object { if ($_ -match '^([^=]+)=(.*)$') { [Environment]::SetEnvironmentVariable($matches[1], $matches[2], 'Process') } }
-.\mvnw.cmd -f backend\pom.xml spring-boot:run
-```
-
-The local API is `http://localhost:8080/api`; Swagger UI is `http://localhost:8080/swagger-ui/index.html`. The development profile uses MySQL on localhost, local schema update, development-only demo seeding, and the admin-only demo reset route. Supply a local `JWT_SECRET` through `backend/.env`; there is no fallback secret in source configuration.
-
-### Admin
+Run from the project root:
 
 ```powershell
-cd "D:\student app\admin"
-npm ci
-npm run dev
+.\mvnw.cmd -f backend\pom.xml clean verify
+docker build -t school-lms-api .
 ```
 
-The ignored local `admin/.env` sets `VITE_API_BASE_URL=http://localhost:8080/api`.
+Maven runs tests; the Docker build also runs `clean verify` before copying the executable JAR into the smaller runtime image. For local development, create `backend/.env` from `backend/.env.example`, load it into PowerShell, and use `SPRING_PROFILES_ACTIVE=development`. Local health URL: `http://localhost:8080/actuator/health`.
 
-### Mobile
+## Railway backend service
 
-```powershell
-cd "D:\student app\mobile"
-npm ci
-npx expo start
-```
+1. Connect the repository and set the backend service source to the repository root containing `Dockerfile` and `railway.json`.
+2. Keep the existing Railway MySQL service and make its connection values available to the backend service.
+3. Let Railway build from the Dockerfile; do not override the start command. The image runs `java -jar /app/app.jar`.
+4. Set these backend variables:
 
-The ignored local `mobile/.env` sets `APP_ENV=development`, `EXPO_PUBLIC_APP_ENV=development`, and `EXPO_PUBLIC_API_BASE_URL=http://localhost:8080/api`. On a physical phone, use the development computer's reachable LAN address instead of localhost.
-
-## Production environment variables
-
-Set these in the backend host's secret/environment-variable manager. Do not commit them or copy a local `.env` to the host.
-
-| Variable | Purpose |
+| Variable | Value |
 | --- | --- |
-| `SPRING_PROFILES_ACTIVE` | Must be `production`. |
-| `DB_HOST` | Production MySQL hostname; its TLS certificate must match this name. |
-| `DB_PORT` | MySQL port; defaults to `3306`. |
-| `DB_NAME` | Existing production schema/database name. |
-| `DB_USERNAME` | Production database user with only the privileges the app needs. |
-| `DB_PASSWORD` | Production database password, stored as a host secret. |
-| `JWT_SECRET` | Unique random secret of at least 32 bytes, stored as a host secret. Rotating it invalidates existing tokens. |
-| `CORS_ALLOWED_ORIGINS` | Exact HTTPS admin site origin(s), comma-separated, with no path or trailing slash. Wildcards and HTTP origins are rejected in production. |
-| `PORT` | Optional host-provided HTTP port; defaults to `8080`. |
-| `JWT_EXPIRATION_MS` | Optional JWT lifetime; defaults to one day. |
-| `FILE_UPLOAD_PATH` | Optional writable persistent path if uploads are enabled by the application. |
+| `SPRING_PROFILES_ACTIVE` | `production` |
+| `SPRING_DATASOURCE_URL` | Full JDBC URL `jdbc:mysql://host:port/database?...` using actual Railway MySQL values |
+| `SPRING_DATASOURCE_USERNAME` | Actual Railway MySQL username |
+| `SPRING_DATASOURCE_PASSWORD` | Actual Railway MySQL password (secret) |
+| `JWT_SECRET` | Unique random secret with at least 32 UTF-8 bytes (secret) |
+| `CORS_ALLOWED_ORIGINS` | Exact HTTPS admin origin after it is published; comma-separated if needed |
+| `SPRING_JPA_HIBERNATE_DDL_AUTO` | Optional; defaults to `update` |
+| `SPRING_JPA_SHOW_SQL` | Optional; defaults to `false` |
+| `JWT_EXPIRATION_MS` | Optional; defaults to one day |
+| `FILE_UPLOAD_PATH` | Optional; defaults to `./uploads` |
 
-The mobile app is a native client and does not need a browser CORS origin. If a browser-based mobile/web client is added, add its exact HTTPS origin too.
+Do not set a fixed PORT; Railway injects it. The API falls back to 8080 only outside Railway. Supply the MySQL JDBC URL, username, and password through the standard SPRING_DATASOURCE variables. The URL is consumed as provided. Include TLS/timezone parameters if the database provider requires them. Do not use a `mysql://` value for the JDBC variable; use the `jdbc:mysql://` scheme.
 
-The production profile requires MySQL and JDBC `sslMode=VERIFY_IDENTITY`; it requires a provisioned schema and uses Hibernate `validate`. It does not create the schema, alter its structure, seed demo accounts, or expose the reset controller. There is no migration framework in the current project, so provision/update schema from reviewed DDL before starting the production API. Do not run production with the `development` profile or `ddl-auto=update`.
+Production `CORS_ALLOWED_ORIGINS` accepts only explicit HTTPS origins; wildcards are rejected. If unset, the backend starts with no browser origins allowed, so add the real admin origin before using the browser admin. Do not use `*`.
 
-## Backend build and run
-
-From the project root, build the existing backend with Java 21 and the checked-in wrapper:
-
-```powershell
-cd "D:\student app"
-$env:JAVA_HOME = "C:\Program Files\Java\jdk-21"
-.\mvnw.cmd -f backend\pom.xml clean package
-```
-
-Expected artifact: `backend\target\school-lms-api-0.1.0.jar`.
-
-After the deployment host has the variables above, its start command is:
-
-```powershell
-java -jar backend\target\school-lms-api-0.1.0.jar
-```
-
-Use the provider's environment/secret manager and process manager to set variables and keep the service running. The health endpoint is `/actuator/health`. No provider-specific publish command can be supplied until a host is chosen.
+5. Deploy the backend. Railway builds the Docker image and checks `/actuator/health` before marking it healthy.
+6. Generate a public domain for the healthy backend service. Railway supplies the real URL; this repository does not invent one.
 
 ## Admin production build
 
-The production API URL is provided only during build. It must be the real HTTPS base ending in `/api`; the Vite config stops the build if it is missing, HTTP, or still a placeholder.
+After receiving the actual HTTPS backend URL, build the Vite app with `VITE_API_BASE_URL` ending in `/api`. Production config rejects missing, placeholder, and non-HTTPS URLs.
 
 ```powershell
-cd "D:\student app\admin"
-$ApiUrl = Read-Host "Enter the deployed HTTPS API base URL ending in /api"
-if ($ApiUrl -notmatch '^https://.+/api/?$' -or $ApiUrl -match 'YOUR-ONLINE-API-DOMAIN') { throw "Use the real HTTPS API URL ending in /api." }
+Set-Location admin
+$ApiUrl = Read-Host "Enter the real HTTPS API base URL ending in /api"
+if ($ApiUrl -notmatch '^https://.+/api/?$') { throw "Enter the real HTTPS API URL ending in /api." }
 Set-Content .env.production "VITE_API_BASE_URL=$ApiUrl"
 npm ci
 npm run build
 ```
 
-Build output is in `admin\dist`. Upload that directory to the selected static hosting provider only after reviewing the build and choosing the provider. No deployment is performed here.
+Publish `admin/dist` with a static host, then set that host's exact HTTPS origin in Railway CORS.
 
-## Production mobile API and APK
+## Mobile production build
 
-The production EAS profile sets `APP_ENV=production` and `EXPO_PUBLIC_APP_ENV=production`. Store the actual API base URL in the EAS `production` environment; it is a public client setting, not a secret. The app configuration rejects a missing, HTTP, or placeholder URL. EAS creates an APK using the existing `android.buildType=apk` profile.
+Set EAS production variable `EXPO_PUBLIC_API_BASE_URL` to the real backend HTTPS URL ending in `/api`, then build with the existing production Android APK profile. Wait until the backend domain and health check are live before building a distributable APK.
 
-```powershell
-cd "D:\student app\mobile"
-npx eas-cli@latest login
-npx eas-cli@latest init
-$ApiUrl = Read-Host "Enter the deployed HTTPS API base URL ending in /api"
-if ($ApiUrl -notmatch '^https://.+/api/?$' -or $ApiUrl -match 'YOUR-ONLINE-API-DOMAIN') { throw "Use the real HTTPS API URL ending in /api." }
-npx eas-cli@latest env:set --name EXPO_PUBLIC_API_BASE_URL --value $ApiUrl --environment production --visibility plaintext
-npx eas-cli@latest build --platform android --profile production
-```
+## Database, uploads, and safety
 
-This requests a cloud build artifact; it does not publish the app to an app store. It requires an Expo account and an EAS-linked project. Do not run the production build until the API is deployed and reachable by HTTPS.
+- Production uses the existing Railway MySQL. Hibernate defaults to `update`, which adds compatible schema changes without dropping tables; back up and review schema changes before rollout. `create` and `create-drop` are not used.
+- Production demo seeding/reset and SQL initialization are disabled.
+- The current source defines `FILE_UPLOAD_PATH` but has no upload controller or storage integration. If uploads are added later, Railway container files are ephemeral without a persistent volume; attach one or configure object storage.
+- Never put real secrets in example files, Docker layers, frontend EXPO_PUBLIC variables, Git, or logs.
 
-## Backend updates and APK updates
+## Remaining manual steps
 
-- Deploying a backend fix that preserves the existing API contract does not require rebuilding the admin bundle or mobile APK.
-- Admin code changes require a new admin build and static-site update.
-- Mobile UI/client code changes require a new APK with the current configuration. The project does not currently configure Expo Updates for production JavaScript updates.
-- Changing `EXPO_PUBLIC_API_BASE_URL`, Android permissions, native dependencies, app identifiers, or other embedded native configuration requires a new APK.
-- A breaking API change may require coordinated admin/mobile updates. Keep API contracts compatible during staged backend releases.
+- Set actual MySQL/JWT/CORS variables in Railway.
+- Verify the existing database and take a backup before deployment.
+- Deploy the branch with these changes and generate the actual backend domain.
+- Build and publish the admin with the real API URL, then set its origin in CORS.
+- Verify `https://<actual-backend-domain>/actuator/health` returns HTTP 200.
 
-## Credentials and local files
-
-The repository ignores `.env`, `.env.*` other than example templates, keystores, local Android config, build outputs, logs, and IDE files. Local `.env` values remain on this machine. Production credentials belong in the host's secret manager and must never be put in frontend `EXPO_PUBLIC_*` variables.
+No live Railway deployment or production database change is performed by this guide.

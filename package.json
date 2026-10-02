@@ -1,0 +1,13 @@
+{
+  "name": "school-lms",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "frontend": "npm --prefix admin run dev",
+    "backend": "mvnw.cmd -f backend/pom.xml spring-boot:run",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}

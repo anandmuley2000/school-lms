@@ -19,4 +19,9 @@ class JwtServiceTest {
             token,
             User.withUsername("other@schooldemo.com").password("hash").roles("PARENT").build()));
   }
+
+  @Test
+  void rejectsJwtSecretsThatAreTooShort() {
+    assertThrows(IllegalArgumentException.class, () -> new JwtService("too-short", 60_000));
+  }
 }

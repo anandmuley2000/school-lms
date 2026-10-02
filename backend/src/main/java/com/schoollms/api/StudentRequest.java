@@ -12,4 +12,6 @@ public record StudentRequest(
     String parentEmail,
     String phone,
     String address,
-    String status) {}
+    String status,
+    @Email String studentLoginEmail,
+    @Size(min = 8) String studentInitialPassword) {}
