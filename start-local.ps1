@@ -65,7 +65,7 @@ if (Test-Path $envFile) {
         }
     }
 } else { Write-Warning 'backend\.env is missing; ensure DB and JWT environment variables are set.' }
-$lanAddress = Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway } | ForEach-Object { $_.IPv4Address.IPAddress } | Where-Object { $_ -and $_ -notmatch '^127\.' -and $_ -notmatch '^169\.254\.' } | Select-Object -First 1
+$lanAddress = Get-NetIPConfiguration -ErrorAction SilentlyContinue | Where-Object { $_.IPv4DefaultGateway } | ForEach-Object { $_.IPv4Address.IPAddress } | Where-Object { $_ -and $_ -notmatch '^127\.' -and $_ -notmatch '^169\.254\.' } | Select-Object -First 1
 $corsOrigins = @('http://localhost:5173', 'http://127.0.0.1:5173')
 if ($env:CORS_ALLOWED_ORIGINS) { $corsOrigins += $env:CORS_ALLOWED_ORIGINS -split ',' }
 if ($lanAddress) { $corsOrigins += "http://${lanAddress}:5173" }
