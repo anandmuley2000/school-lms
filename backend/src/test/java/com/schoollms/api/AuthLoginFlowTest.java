@@ -4,8 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.hamcrest.Matchers.containsString;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,7 +38,8 @@ import org.springframework.test.web.servlet.MvcResult;
     properties = {
       "app.jwt.secret=test-only-jwt-secret-with-more-than-32-bytes",
       "app.jwt.expiration-ms=3600000",
-      "app.cors.allowed-origins=http://localhost:5173"
+      "app.cors.allowed-origins=https://admin.northstar.school",
+      "spring.profiles.active=production"
     })
 @AutoConfigureMockMvc
 @Import({SecurityConfig.class, JwtAuthFilter.class, JwtService.class, ApiExceptionHandler.class})
@@ -124,6 +128,19 @@ class AuthLoginFlowTest {
                         Map.of("email", "ADMIN@NORTHSTAR.LOCAL", "password", "Admin@123"))))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.user.role").value("ADMIN"));
+  }
+
+  @Test
+  void productionCorsAllowsAndroidWebViewPreflightForLogin() throws Exception {
+    mvc.perform(
+            options("/api/auth/login")
+                .header("Origin", "https://localhost")
+                .header("Access-Control-Request-Method", "POST")
+                .header("Access-Control-Request-Headers", "content-type"))
+        .andExpect(status().isOk())
+        .andExpect(header().string("Access-Control-Allow-Origin", "https://localhost"))
+        .andExpect(header().string("Access-Control-Allow-Methods", containsString("POST")))
+        .andExpect(header().string("Access-Control-Allow-Headers", containsString("content-type")));
   }
 
   private record DemoLogin(String email, String password, Role role) {}

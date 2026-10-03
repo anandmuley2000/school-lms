@@ -22,6 +22,8 @@ import org.springframework.web.cors.*;
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
+  private static final String CAPACITOR_ANDROID_ORIGIN = "https://localhost";
+
   @Bean
   PasswordEncoder passwordEncoder() {
     return new BCryptPasswordEncoder();
@@ -69,12 +71,13 @@ public class SecurityConfig {
   CorsConfigurationSource corsConfigurationSource(
       @Value("${app.cors.allowed-origins}") String configuredOrigins, Environment environment) {
     CorsConfiguration c = new CorsConfiguration();
+    boolean production = environment.acceptsProfiles(Profiles.of("production"));
     List<String> origins =
         java.util.Arrays.stream(configuredOrigins.split(","))
             .map(String::trim)
             .filter(origin -> !origin.isEmpty())
             .toList();
-    if (environment.acceptsProfiles(Profiles.of("production"))) {
+    if (production) {
       if (origins.isEmpty()) {
         throw new IllegalStateException(
             "CORS_ALLOWED_ORIGINS must contain at least one explicit HTTPS origin in production");
@@ -108,7 +111,13 @@ public class SecurityConfig {
         }
       }
     }
-    c.setAllowedOrigins(origins);
+    List<String> allowedOrigins = new java.util.ArrayList<>(origins);
+    if (production
+        && allowedOrigins.stream()
+            .noneMatch(origin -> CAPACITOR_ANDROID_ORIGIN.equalsIgnoreCase(origin))) {
+      allowedOrigins.add(CAPACITOR_ANDROID_ORIGIN);
+    }
+    c.setAllowedOrigins(allowedOrigins);
     c.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
     c.setAllowedHeaders(List.of("Authorization", "Content-Type"));
     c.setAllowCredentials(true);

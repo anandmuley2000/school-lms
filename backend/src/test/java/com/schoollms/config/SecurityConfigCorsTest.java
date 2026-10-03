@@ -1,10 +1,13 @@
 package com.schoollms.config;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
+import org.springframework.mock.web.MockHttpServletRequest;
 
 class SecurityConfigCorsTest {
   private final SecurityConfig securityConfig = new SecurityConfig();
@@ -36,5 +39,20 @@ class SecurityConfigCorsTest {
             securityConfig.corsConfigurationSource(
                 "https://school-admin.test,https://localhost",
                 productionEnvironment));
+  }
+
+  @Test
+  void productionAllowsCapacitorAndroidOriginAlongsideExplicitWebOrigins() {
+    var source =
+        securityConfig.corsConfigurationSource(
+            "https://admin.northstar.school", productionEnvironment);
+    var request = new MockHttpServletRequest("OPTIONS", "/api/auth/login");
+    var cors = source.getCorsConfiguration(request);
+
+    assertTrue(cors.getAllowedOrigins().contains("https://admin.northstar.school"));
+    assertTrue(cors.getAllowedOrigins().contains("https://localhost"));
+    assertEquals("https://localhost", cors.checkOrigin("https://localhost"));
+    assertTrue(cors.getAllowedMethods().contains("POST"));
+    assertTrue(cors.checkHeaders(java.util.List.of("content-type")).contains("content-type"));
   }
 }
