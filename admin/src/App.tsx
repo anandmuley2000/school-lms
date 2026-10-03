@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Account,
   api,
@@ -46,10 +46,10 @@ const nav: Page[] = [
   "Bus Tracking",
 ];
 const demos = [
-  ["ADMIN", "admin@schooldemo.com", "Admin@123"],
-  ["TEACHER", "teacher@schooldemo.com", "Teacher@123"],
-  ["PARENT", "parent@schooldemo.com", "Parent@123"],
-  ["STUDENT", "student@schooldemo.com", "Student@123"],
+  ["ADMIN", "admin@northstar.local", "Admin@123"],
+  ["TEACHER", "teacher@northstar.local", "Teacher@123"],
+  ["PARENT", "parent@northstar.local", "Parent@123"],
+  ["STUDENT", "student@northstar.local", "Student@123"],
 ];
 export default function App() {
   const [user, setUser] = useState<User | null>(null),
@@ -70,6 +70,26 @@ export default function App() {
     [error, setError] = useState(""),
     [toast, setToast] = useState(""),
     [edit, setEdit] = useState<Student | null>(null);
+  const clearSessionState = useCallback((message = "") => {
+    clearToken();
+    setUser(null);
+    setStudents([]);
+    setAccounts([]);
+    setNotes([]);
+    setHomework([]);
+    setResults([]);
+    setFees([]);
+    setMessages([]);
+    setEvents([]);
+    setLeaveRequests([]);
+    setBusRoutes([]);
+    setSummary({});
+    setQuery("");
+    setEdit(null);
+    setToast("");
+    setPage("Overview");
+    setError(message);
+  }, []);
   const reload = useCallback(async () => {
     if (!user) return;
     setError("");
@@ -97,18 +117,35 @@ export default function App() {
   }, [user]);
   useEffect(() => {
     setUnauthorizedHandler(() => {
-      setUser(null);
-      setError("Your session expired. Please sign in again.");
+      clearSessionState("Your session expired. Please sign in again.");
     });
     if (localStorage.getItem("school_lms_token"))
       api<User>("/auth/me")
         .then(setUser)
         .catch(() => clearToken());
     return () => setUnauthorizedHandler(undefined);
-  }, []);
+  }, [clearSessionState]);
   useEffect(() => {
     reload();
   }, [reload]);
+  useEffect(() => {
+    if (!user || page !== "Bus Tracking") return;
+    let active = true;
+    const refreshRoutes = () =>
+      api<BusRoute[]>("/bus-routes")
+        .then((routes) => {
+          if (active) setBusRoutes(routes);
+        })
+        .catch((e) => {
+          if (active) setError(e instanceof Error ? e.message : "Could not refresh bus locations");
+        });
+    void refreshRoutes();
+    const timer = window.setInterval(() => void refreshRoutes(), 15_000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [user, page]);
   async function login(email: string, password: string) {
     setBusy(true);
     setError("");
@@ -127,10 +164,8 @@ export default function App() {
     }
   }
   function signOut() {
-    clearToken();
-    setUser(null);
-    setStudents([]);
-    setPage("Overview");
+    clearSessionState();
+    window.location.replace(window.location.pathname || "/");
   }
   if (!user) return <Login onLogin={login} busy={busy} error={error} />;
   const filtered = students.filter((s) =>
@@ -176,8 +211,8 @@ export default function App() {
               <strong>{user.name}</strong>
               <small>{user.role.toLowerCase()}</small>
             </div>
-            <button className="dots" onClick={signOut} aria-label="Sign out">
-              ↗
+            <button className="logout-button" onClick={signOut} aria-label="Log out" title="Log out">
+              <span aria-hidden="true">↗</span><span className="logout-label">Log out</span>
             </button>
           </div>
         </div>
@@ -197,6 +232,9 @@ export default function App() {
               ♧{notes.some((n) => !n.read) && <i />}
             </button>
             <div className="avatar small">{user.name.slice(0, 1)}</div>
+            <button className="topbar-logout" onClick={signOut}>
+              Log out
+            </button>
           </div>
         </header>
         <section className="content">
@@ -440,6 +478,9 @@ export default function App() {
                 await reload();
                 setToast("Bus routes updated.");
               }}
+              onLocationUpdated={(updated) =>
+                setBusRoutes((routes) => routes.map((route) => route.id === updated.id ? updated : route))
+              }
             />
           )}
           {page === "Notifications" && (
@@ -2217,19 +2258,47 @@ function StudentEditor({
 
 // ─── Bus Tracking Page ──────────────────────────────────────────────────────
 
+function openStreetMapEmbedUrl(latitude: number, longitude: number) {
+  const padding = 0.01;
+  const query = new URLSearchParams({
+    bbox: `${longitude - padding},${latitude - padding},${longitude + padding},${latitude + padding}`,
+    layer: "mapnik",
+    marker: `${latitude},${longitude}`,
+  });
+  return `https://www.openstreetmap.org/export/embed.html?${query}`;
+}
+
+function openStreetMapLink(latitude: number, longitude: number) {
+  return `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=16/${latitude}/${longitude}`;
+}
+
 function BusTrackingPage({
   user,
   items,
   onSaved,
+  onLocationUpdated,
 }: {
   user: User;
   items: BusRoute[];
   onSaved: () => void;
+  onLocationUpdated: (route: BusRoute) => void;
 }) {
   const [editBus, setEditBus] = useState<BusRoute | null>(null);
   const [selectedBus, setSelectedBus] = useState<BusRoute | null>(items[0] ?? null);
   const [locBusy, setLocBusy] = useState(false);
   const [locError, setLocError] = useState("");
+  const [sharingLocation, setSharingLocation] = useState(false);
+  const gpsWatchId = useRef<number | null>(null);
+  const lastLocationSentAt = useRef(0);
+
+  useEffect(
+    () => () => {
+      if (gpsWatchId.current !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(gpsWatchId.current);
+      }
+    },
+    [],
+  );
 
   // Keep selectedBus in sync as items refresh
   const activeBus = items.find((b) => b.id === selectedBus?.id) ?? items[0] ?? null;
@@ -2239,31 +2308,67 @@ function BusTrackingPage({
   const statusLabel = (s: string) =>
     s === "IN_TRANSIT" ? "In Transit" : s === "ACTIVE" ? "At Stop" : s === "MAINTENANCE" ? "Maintenance" : "Inactive";
 
-  async function simulateLocationUpdate(bus: BusRoute) {
-    setLocBusy(true);
-    setLocError("");
-    try {
-      const offLat = (Math.random() - 0.5) * 0.01;
-      const offLng = (Math.random() - 0.5) * 0.01;
-      const stops = (bus.stops ?? "").split(",").map((s) => s.trim());
-      const randomStop = stops[Math.floor(Math.random() * stops.length)];
-      const speed = Math.round(20 + Math.random() * 40);
-      await api(`/bus-routes/${bus.id}/location`, {
-        method: "PUT",
-        body: JSON.stringify({
-          latitude: +(bus.latitude + offLat).toFixed(6),
-          longitude: +(bus.longitude + offLng).toFixed(6),
-          speedKmvh: speed,
-          currentStop: randomStop,
-        }),
-      });
-      onSaved();
-    } catch (e) {
-      setLocError(e instanceof Error ? e.message : "Update failed");
-    } finally {
-      setLocBusy(false);
+  function stopLocationSharing() {
+    if (gpsWatchId.current !== null && navigator.geolocation) {
+      navigator.geolocation.clearWatch(gpsWatchId.current);
     }
+    gpsWatchId.current = null;
+    setSharingLocation(false);
+    setLocBusy(false);
   }
+
+  function startLocationSharing(bus: BusRoute) {
+    if (!navigator.geolocation) {
+      setLocError("Location sharing is not available on this device or browser.");
+      return;
+    }
+    setLocError("");
+    lastLocationSentAt.current = 0;
+    gpsWatchId.current = navigator.geolocation.watchPosition(
+      (position) => {
+        const now = Date.now();
+        if (now - lastLocationSentAt.current < 10_000) return;
+        lastLocationSentAt.current = now;
+        setLocBusy(true);
+        void api<BusRoute>(`/bus-routes/${bus.id}/location`, {
+          method: "PUT",
+          body: JSON.stringify({
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            speedKmvh:
+              position.coords.speed === null
+                ? bus.speedKmvh
+                : Number((position.coords.speed * 3.6).toFixed(1)),
+            currentStop: bus.currentStop,
+          }),
+        })
+          .then(onLocationUpdated)
+          .catch((e) => setLocError(e instanceof Error ? e.message : "Location update failed"))
+          .finally(() => setLocBusy(false));
+      },
+      (positionError) => {
+        setLocError(positionError.message || "Could not read this device's location.");
+        stopLocationSharing();
+      },
+      { enableHighAccuracy: true, maximumAge: 5_000, timeout: 20_000 },
+    );
+    setSharingLocation(true);
+  }
+
+  const canShareLocation = user.role === "ADMIN" || user.role === "TEACHER";
+  const locationAgeMs = activeBus ? Date.now() - Date.parse(activeBus.lastUpdated) : Infinity;
+  const isDemoRoute = Boolean(
+    activeBus &&
+      (activeBus.busNumber.toUpperCase().startsWith("DEMO-") ||
+        activeBus.routeName.toLowerCase().startsWith("demo")),
+  );
+  const lastUpdatedText = activeBus
+    ? new Date(activeBus.lastUpdated).toLocaleString()
+    : "Unknown";
+  const hasGpsFix =
+    activeBus !== null && activeBus.latitude !== null && activeBus.longitude !== null;
+  const locationIsStale =
+    hasGpsFix && (!Number.isFinite(locationAgeMs) || locationAgeMs > 2 * 60_000);
 
   const inTransit = items.filter((b) => b.status === "IN_TRANSIT").length;
   const atStop = items.filter((b) => b.status === "ACTIVE").length;
@@ -2329,110 +2434,86 @@ function BusTrackingPage({
                 {activeBus ? activeBus.routeName : "Select a bus to track"}
               </p>
             </div>
-            {user.role === "ADMIN" && activeBus && (
-              <button
-                className="secondary"
-                onClick={() => simulateLocationUpdate(activeBus)}
-                disabled={locBusy}
-                style={{ fontSize: "0.8rem" }}
-              >
-                {locBusy ? "Updating…" : "↻ Simulate Update"}
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <button className="secondary" onClick={onSaved} style={{ fontSize: "0.8rem" }}>
+                ↻ Refresh
               </button>
-            )}
+              {canShareLocation && activeBus && (
+                sharingLocation ? (
+                  <button className="secondary" onClick={stopLocationSharing} style={{ fontSize: "0.8rem" }}>
+                    Stop GPS sharing
+                  </button>
+                ) : (
+                  <button
+                    className="secondary"
+                    onClick={() => startLocationSharing(activeBus)}
+                    disabled={locBusy}
+                    style={{ fontSize: "0.8rem" }}
+                  >
+                    {locBusy ? "Getting location…" : "Start GPS sharing"}
+                  </button>
+                )
+              )}
+            </div>
           </div>
           {locError && (
             <div style={{ padding: "0.5rem 1rem", color: "#ef4444", fontSize: "0.8rem" }}>
               {locError}
             </div>
           )}
-          {/* SVG Map Visualization */}
-          <div style={{ position: "relative", background: "#1e293b", minHeight: "360px" }}>
-            <svg
-              viewBox="0 0 700 360"
-              style={{ width: "100%", height: "360px" }}
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              {/* Road grid */}
-              {[60, 160, 260, 360, 460, 560].map((x) => (
-                <line key={`v${x}`} x1={x} y1={0} x2={x} y2={360} stroke="#334155" strokeWidth="1" />
-              ))}
-              {[60, 120, 180, 240, 300].map((y) => (
-                <line key={`h${y}`} x1={0} y1={y} x2={700} y2={y} stroke="#334155" strokeWidth="1" />
-              ))}
-              {/* Main roads */}
-              <line x1={0} y1={180} x2={700} y2={180} stroke="#475569" strokeWidth="6" />
-              <line x1={350} y1={0} x2={350} y2={360} stroke="#475569" strokeWidth="6" />
-              <line x1={0} y1={90} x2={700} y2={90} stroke="#374151" strokeWidth="3" />
-              <line x1={175} y1={0} x2={175} y2={360} stroke="#374151" strokeWidth="3" />
-              <line x1={525} y1={0} x2={525} y2={360} stroke="#374151" strokeWidth="3" />
-              {/* School icon */}
-              <rect x={320} y={152} width={60} height={56} rx={6} fill="#1e40af" opacity={0.9} />
-              <text x={350} y={183} textAnchor="middle" fill="white" fontSize="11" fontWeight="bold">SCHOOL</text>
-              <text x={350} y={198} textAnchor="middle" fill="#93c5fd" fontSize="10">Campus</text>
-              {/* Bus markers */}
-              {items.map((bus) => {
-                // Normalize lat/lng to SVG coords: lat 18.50–18.54 → y 320–40, lng 73.83–73.88 → x 80–620
-                const svgX = Math.max(30, Math.min(670, ((bus.longitude - 73.83) / 0.05) * 540 + 80));
-                const svgY = Math.max(20, Math.min(340, (1 - (bus.latitude - 18.50) / 0.04) * 280 + 40));
-                const isSelected = activeBus?.id === bus.id;
-                return (
-                  <g
-                    key={bus.id}
-                    style={{ cursor: "pointer" }}
-                    onClick={() => setSelectedBus(bus)}
-                  >
-                    {isSelected && (
-                      <circle cx={svgX} cy={svgY} r={22} fill={statusColor(bus.status)} opacity={0.2} />
-                    )}
-                    <circle
-                      cx={svgX}
-                      cy={svgY}
-                      r={14}
-                      fill={statusColor(bus.status)}
-                      stroke={isSelected ? "white" : "transparent"}
-                      strokeWidth={2}
-                    />
-                    <text x={svgX} y={svgY + 5} textAnchor="middle" fill="white" fontSize="11" fontWeight="bold">
-                      🚌
-                    </text>
-                    <text x={svgX} y={svgY + 26} textAnchor="middle" fill="white" fontSize="9" fontWeight="bold">
-                      {bus.busNumber.slice(-4)}
-                    </text>
-                  </g>
-                );
-              })}
-              {items.length === 0 && (
-                <text x={350} y={190} textAnchor="middle" fill="#64748b" fontSize={16}>
-                  No buses available
-                </text>
-              )}
-            </svg>
-            {/* Legend */}
-            <div style={{
-              position: "absolute", bottom: 12, left: 12,
-              background: "rgba(15,23,42,0.85)", borderRadius: "8px", padding: "0.5rem 0.75rem",
-              display: "flex", gap: "1rem", fontSize: "0.7rem", color: "#94a3b8"
-            }}>
-              {[["#22c55e", "In Transit"], ["#3b82f6", "At Stop"], ["#f59e0b", "Maintenance"]].map(([c, l]) => (
-                <span key={l} style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                  <span style={{ width: 10, height: 10, borderRadius: "50%", background: c, display: "inline-block" }} />
-                  {l}
-                </span>
-              ))}
+          {activeBus && hasGpsFix ? (
+            <iframe
+              title={`Map location for ${activeBus.busNumber}`}
+              src={openStreetMapEmbedUrl(activeBus.latitude!, activeBus.longitude!)}
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              style={{ width: "100%", height: 360, border: 0, display: "block" }}
+            />
+          ) : (
+            <div className="empty" style={{ minHeight: 180, display: "grid", placeItems: "center" }}>
+              {activeBus ? "No GPS location has been reported for this bus yet." : "No bus routes are configured yet."}
             </div>
-          </div>
+          )}
 
           {/* Selected Bus Details */}
           {activeBus && (
             <div style={{ padding: "1rem 1.25rem", borderTop: "1px solid var(--border)" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "0.75rem" }}>
+              {isDemoRoute && (
+                <div className="bus-location-notice">
+                  Demo record — this saved position is not live vehicle GPS.
+                </div>
+              )}
+              {!hasGpsFix && (
+                <div className="bus-location-notice stale">
+                  No GPS location has been reported for this bus.
+                </div>
+              )}
+              {locationIsStale && (
+                <div className="bus-location-notice stale">
+                  Location is stale. Last reported {lastUpdatedText}.
+                </div>
+              )}
+              {canShareLocation && (
+                <p style={{ margin: "0.5rem 0 1rem", color: "var(--text-dim)", fontSize: "0.8rem" }}>
+                  To publish real bus GPS, start sharing on a device travelling on this bus. Sharing stops when you leave this page.
+                </p>
+              )}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(135px, 1fr))", gap: "0.75rem" }}>
                 {[
+                  ["Bus", activeBus.busNumber],
                   ["Route", activeBus.routeName],
-                  ["Current Stop", activeBus.currentStop],
-                  ["Speed", `${activeBus.speedKmvh} km/h`],
+                  ["Status", statusLabel(activeBus.status)],
+                  ["Current Stop", activeBus.currentStop || "Not reported"],
+                  ["Speed", activeBus.speedKmvh === null ? "Not reported" : `${activeBus.speedKmvh} km/h`],
                   ["Driver", activeBus.driverName],
                   ["Phone", activeBus.driverPhone],
-                  ["Last Update", new Date(activeBus.lastUpdated).toLocaleTimeString()],
+                  [
+                    "GPS Coordinates",
+                    hasGpsFix
+                      ? `${activeBus.latitude!.toFixed(6)}, ${activeBus.longitude!.toFixed(6)}`
+                      : "Not reported",
+                  ],
+                  ["Last Reported", lastUpdatedText],
                 ].map(([label, value]) => (
                   <div key={label}>
                     <div style={{ fontSize: "0.7rem", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
@@ -2442,12 +2523,22 @@ function BusTrackingPage({
                   </div>
                 ))}
               </div>
+              {hasGpsFix && (
+                <a
+                  href={openStreetMapLink(activeBus.latitude!, activeBus.longitude!)}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{ display: "inline-block", marginTop: "0.75rem", fontSize: "0.8rem" }}
+                >
+                  Open this location in OpenStreetMap
+                </a>
+              )}
               <div style={{ marginTop: "0.75rem" }}>
                 <div style={{ fontSize: "0.7rem", color: "var(--text-dim)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.3rem" }}>
                   Stops
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
-                  {activeBus.stops.split(",").map((s) => (
+                  {(activeBus.stops ?? "").split(",").filter(Boolean).map((s) => (
                     <span
                       key={s}
                       style={{
@@ -2501,11 +2592,11 @@ function BusTrackingPage({
                     driverName: "",
                     driverPhone: "",
                     capacity: 40,
-                    status: "ACTIVE",
-                    latitude: 18.5204,
-                    longitude: 73.8567,
-                    speedKmvh: 0,
-                    currentStop: "Main Campus",
+                    latitude: null,
+                    longitude: null,
+                    speedKmvh: null,
+                    currentStop: "",
+                    status: "INACTIVE",
                     stops: "Stop 1, Stop 2, Main Campus",
                     lastUpdated: new Date().toISOString(),
                   })
@@ -2521,7 +2612,10 @@ function BusTrackingPage({
               return (
                 <div
                   key={bus.id}
-                  onClick={() => setSelectedBus(bus)}
+                  onClick={() => {
+                    if (gpsWatchId.current !== null) stopLocationSharing();
+                    setSelectedBus(bus);
+                  }}
                   style={{
                     padding: "0.9rem 1.25rem",
                     borderBottom: "1px solid var(--border)",
@@ -2564,7 +2658,7 @@ function BusTrackingPage({
                         }}
                       />
                       <span style={{ fontSize: "0.7rem", color: statusColor(bus.status) }}>
-                        {statusLabel(bus.status)} · {bus.currentStop}
+                        {statusLabel(bus.status)} · {bus.currentStop || "No stop reported"}
                       </span>
                     </div>
                   </div>
@@ -2694,11 +2788,11 @@ function BusEditor({
           </label>
           <label>
             Current Stop
-            <input value={form.currentStop} onChange={(e) => change("currentStop", e.target.value)} />
+            <input value={form.currentStop ?? ""} onChange={(e) => change("currentStop", e.target.value)} />
           </label>
           <label className="wide">
             Stops (comma-separated)
-            <input value={form.stops} onChange={(e) => change("stops", e.target.value)} placeholder="Stop 1, Stop 2, Main Campus" />
+            <input value={form.stops ?? ""} onChange={(e) => change("stops", e.target.value)} placeholder="Stop 1, Stop 2, Main Campus" />
           </label>
         </div>
         {error && <div className="form-error">{error}</div>}

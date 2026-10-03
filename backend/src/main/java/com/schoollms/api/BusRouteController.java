@@ -42,10 +42,10 @@ public class BusRouteController {
             request.driverPhone(),
             request.capacity(),
             request.status(),
-            request.latitude() != null ? request.latitude() : 18.5204,
-            request.longitude() != null ? request.longitude() : 73.8567,
-            request.speedKmvh() != null ? request.speedKmvh() : 35.0,
-            request.currentStop() != null ? request.currentStop() : "School Campus",
+            request.latitude(),
+            request.longitude(),
+            request.speedKmvh(),
+            request.currentStop(),
             request.stops());
     return BusRouteView.from(busRoutes.save(route));
   }

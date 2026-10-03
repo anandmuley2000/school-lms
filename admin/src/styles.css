@@ -171,6 +171,39 @@ button:disabled {
   color: #91a7ba;
   font-size: 16px;
 }
+.logout-button {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 9px;
+  border: 1px solid #42617d;
+  border-radius: 8px;
+  background: transparent;
+  color: #d8e5f1;
+  font-size: 11px;
+  cursor: pointer;
+}
+.logout-button:hover,
+.logout-button:focus-visible {
+  background: #203e59;
+  color: #fff;
+}
+.bus-location-notice {
+  margin: 0 0 0.75rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid #d8a94b;
+  border-radius: 8px;
+  background: #fff8e7;
+  color: #78520b;
+  font-size: 0.82rem;
+}
+.bus-location-notice.stale {
+  border-color: #df9b83;
+  background: #fff1ed;
+  color: #8c3219;
+}
 .main {
   margin-left: 244px;
   min-height: 100vh;
@@ -196,6 +229,20 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 22px;
+}
+.topbar-logout {
+  padding: 7px 10px;
+  border: 1px solid #d5e2ef;
+  border-radius: 7px;
+  background: #fff;
+  color: #35699b;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.topbar-logout:hover,
+.topbar-logout:focus-visible {
+  background: #edf5fc;
 }
 .term {
   font-size: 11px;
@@ -1305,10 +1352,20 @@ tbody tr:last-child td {
   }
   .profile-mini {
     justify-content: center;
+    flex-wrap: wrap;
     padding: 14px 0;
   }
   .profile-mini > div:nth-child(2),
   .dots {
+    display: none;
+  }
+  .profile-mini .logout-button {
+    width: 34px;
+    height: 34px;
+    margin: 0 auto;
+    padding: 0;
+  }
+  .logout-label {
     display: none;
   }
   .main {
@@ -1317,6 +1374,13 @@ tbody tr:last-child td {
   .topbar {
     height: 55px;
     padding: 0 14px;
+  }
+  .top-actions {
+    gap: 8px;
+  }
+  .topbar-logout {
+    padding: 5px 7px;
+    font-size: 10px;
   }
   .term {
     display: none;

@@ -29,15 +29,15 @@ public class BusRoute {
   private Integer capacity = 40;
 
   @Column(nullable = false)
-  private String status = "IN_TRANSIT"; // ACTIVE, IN_TRANSIT, MAINTENANCE, INACTIVE
+  private String status = "INACTIVE"; // ACTIVE, IN_TRANSIT, MAINTENANCE, INACTIVE
 
-  private Double latitude = 18.5204; // default sample Pune / India coords
+  private Double latitude;
 
-  private Double longitude = 73.8567;
+  private Double longitude;
 
-  private Double speedKmvh = 35.0;
+  private Double speedKmvh;
 
-  private String currentStop = "Main Gate";
+  private String currentStop;
 
   @Column(length = 2000)
   private String stops = "North Gate, Central Junction, East Avenue, Main Campus";
@@ -85,7 +85,7 @@ public class BusRoute {
     if (latitude != null) this.latitude = latitude;
     if (longitude != null) this.longitude = longitude;
     if (speedKmvh != null) this.speedKmvh = speedKmvh;
-    if (currentStop != null) this.currentStop = currentStop;
+    if (currentStop != null && !currentStop.isBlank()) this.currentStop = currentStop;
     this.lastUpdated = Instant.now();
   }
 

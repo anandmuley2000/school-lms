@@ -37,7 +37,6 @@ public class DemoAccountInitializer implements ApplicationRunner {
   private final FeeRepository fees;
   private final SchoolEventRepository events;
   private final LeaveApplicationRepository leaveApplications;
-  private final BusRouteRepository busRoutes;
   private final NotificationRepository notifications;
   private final MessageRepository messages;
   private final PasswordEncoder passwordEncoder;
@@ -52,7 +51,6 @@ public class DemoAccountInitializer implements ApplicationRunner {
       FeeRepository fees,
       SchoolEventRepository events,
       LeaveApplicationRepository leaveApplications,
-      BusRouteRepository busRoutes,
       NotificationRepository notifications,
       MessageRepository messages,
       PasswordEncoder passwordEncoder) {
@@ -65,7 +63,6 @@ public class DemoAccountInitializer implements ApplicationRunner {
     this.fees = fees;
     this.events = events;
     this.leaveApplications = leaveApplications;
-    this.busRoutes = busRoutes;
     this.notifications = notifications;
     this.messages = messages;
     this.passwordEncoder = passwordEncoder;
@@ -179,22 +176,6 @@ public class DemoAccountInitializer implements ApplicationRunner {
               DEMO_ATTENDANCE_DATE.plusDays(20),
               DEMO_ATTENDANCE_DATE.plusDays(21),
               leaveReason));
-    }
-
-    if (busRoutes.findByBusNumber("DEMO-01").isEmpty()) {
-      busRoutes.save(
-          new BusRoute(
-              "DEMO-01",
-              "Demo Route - North District",
-              "Demo Driver",
-              "+1-202-555-0101",
-              40,
-              "IN_TRANSIT",
-              40.7128,
-              -74.0060,
-              32.0,
-              "Central Junction",
-              "North Gate, Central Junction, East Avenue, Main Campus"));
     }
 
     String notificationTitle = "Demo: Welcome to School LMS";

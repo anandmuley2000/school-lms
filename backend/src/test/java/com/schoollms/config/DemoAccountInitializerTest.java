@@ -38,7 +38,6 @@ class DemoAccountInitializerTest {
   private FeeRepository fees;
   private SchoolEventRepository events;
   private LeaveApplicationRepository leaveApplications;
-  private BusRouteRepository busRoutes;
   private NotificationRepository notifications;
   private MessageRepository messages;
   private PasswordEncoder passwordEncoder;
@@ -55,7 +54,6 @@ class DemoAccountInitializerTest {
     fees = mock(FeeRepository.class);
     events = mock(SchoolEventRepository.class);
     leaveApplications = mock(LeaveApplicationRepository.class);
-    busRoutes = mock(BusRouteRepository.class);
     notifications = mock(NotificationRepository.class);
     messages = mock(MessageRepository.class);
     passwordEncoder = new SecurityConfig().passwordEncoder();
@@ -70,7 +68,6 @@ class DemoAccountInitializerTest {
             fees,
             events,
             leaveApplications,
-            busRoutes,
             notifications,
             messages,
             passwordEncoder);
@@ -81,8 +78,6 @@ class DemoAccountInitializerTest {
     when(students.save(any(Student.class))).thenAnswer(invocation -> invocation.getArgument(0));
     when(attendance.findByStudent_IdAndDate(null, LocalDate.of(2026, 10, 1)))
         .thenReturn(Optional.empty());
-    when(busRoutes.findByBusNumber("DEMO-01")).thenReturn(Optional.empty());
-    when(busRoutes.save(any(BusRoute.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
     when(teacherClasses.save(any(TeacherClass.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
@@ -127,7 +122,6 @@ class DemoAccountInitializerTest {
     verify(fees, times(2)).save(any(FeeRecord.class));
     verify(events, times(2)).save(any(SchoolEvent.class));
     verify(leaveApplications).save(any(LeaveApplication.class));
-    verify(busRoutes).save(any(BusRoute.class));
     verify(notifications).save(any(Notification.class));
     verify(messages).save(any(SchoolMessage.class));
 
@@ -143,11 +137,9 @@ class DemoAccountInitializerTest {
     ArgumentCaptor<Account> savedAccounts = ArgumentCaptor.forClass(Account.class);
     ArgumentCaptor<Student> savedStudents = ArgumentCaptor.forClass(Student.class);
     ArgumentCaptor<Attendance> savedAttendance = ArgumentCaptor.forClass(Attendance.class);
-    ArgumentCaptor<BusRoute> savedBus = ArgumentCaptor.forClass(BusRoute.class);
     verify(accounts, times(4)).save(savedAccounts.capture());
     verify(students).save(savedStudents.capture());
     verify(attendance).save(savedAttendance.capture());
-    verify(busRoutes).save(savedBus.capture());
 
     for (Account account : savedAccounts.getAllValues()) {
       when(accounts.findByEmailIgnoreCase(account.getEmail())).thenReturn(Optional.of(account));
@@ -176,7 +168,6 @@ class DemoAccountInitializerTest {
     when(leaveApplications.existsByRequester_IdAndStudent_IdAndReason(
             null, student.getId(), "Demo: Family appointment"))
         .thenReturn(true);
-    when(busRoutes.findByBusNumber("DEMO-01")).thenReturn(Optional.of(savedBus.getValue()));
     when(notifications.existsByRecipient_IdAndTitleAndMessage(
             null,
             "Demo: Welcome to School LMS",
@@ -199,7 +190,6 @@ class DemoAccountInitializerTest {
         fees,
         events,
         leaveApplications,
-        busRoutes,
         notifications,
         messages);
     initializer.run(new DefaultApplicationArguments(new String[0]));
@@ -288,7 +278,6 @@ class DemoAccountInitializerTest {
     verify(fees, never()).save(any(FeeRecord.class));
     verify(events, never()).save(any(SchoolEvent.class));
     verify(leaveApplications, never()).save(any(LeaveApplication.class));
-    verify(busRoutes, never()).save(any(BusRoute.class));
     verify(notifications, never()).save(any(Notification.class));
     verify(messages, never()).save(any(SchoolMessage.class));
   }

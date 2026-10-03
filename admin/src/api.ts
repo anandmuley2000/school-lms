@@ -101,11 +101,11 @@ export type BusRoute = {
   driverPhone: string;
   capacity: number;
   status: string;
-  latitude: number;
-  longitude: number;
-  speedKmvh: number;
-  currentStop: string;
-  stops: string;
+  latitude: number | null;
+  longitude: number | null;
+  speedKmvh: number | null;
+  currentStop: string | null;
+  stops: string | null;
   lastUpdated: string;
 };
 export type LeaveApplication = {
@@ -161,10 +161,11 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const url = `${API_BASE_URL}${path}`;
   let response: Response;
 
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    response = await fetch(url, {
       ...init,
       signal: controller.signal,
       headers: {
@@ -174,6 +175,8 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
       },
     });
   } catch (error) {
+    const errorName = error instanceof Error ? error.name : "UnknownError";
+    console.error(`[School API] Network request failed: ${init.method ?? "GET"} ${url} (${errorName})`);
     if (error instanceof Error && error.name === "AbortError") {
       throw new ApiError("The request timed out. Check your connection and try again.");
     }
@@ -192,6 +195,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     } catch {
       // Keep the friendly status-based message when the response has no JSON body.
     }
+    console.warn(`[School API] HTTP ${response.status}: ${init.method ?? "GET"} ${url} — ${message}`);
 
     if (response.status === 401 && path !== "/auth/login") {
       clearToken();

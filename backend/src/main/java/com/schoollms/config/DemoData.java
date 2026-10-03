@@ -24,7 +24,6 @@ public class DemoData {
       FeeRepository fees,
       SchoolEventRepository events,
       LeaveApplicationRepository leaveApplications,
-      BusRouteRepository busRoutes,
       PasswordEncoder encoder) {
     return args -> {
       Account admin =
@@ -176,47 +175,6 @@ public class DemoData {
                 java.time.LocalDate.now().plusDays(7),
                 java.time.LocalDate.now().plusDays(8),
                 "Family appointment"));
-      }
-      if (busRoutes.count() == 0) {
-        busRoutes.save(
-            new BusRoute(
-                "MH-12-AB-1001",
-                "Route 1 - North District",
-                "Ramesh Shinde",
-                "+91 9822011223",
-                45,
-                "IN_TRANSIT",
-                18.5204,
-                73.8567,
-                38.5,
-                "Central Junction",
-                "North Gate, Central Junction, East Avenue, Main Campus"));
-        busRoutes.save(
-            new BusRoute(
-                "MH-12-AB-1002",
-                "Route 2 - West Suburbs",
-                "Suresh Patil",
-                "+91 9822044556",
-                40,
-                "IN_TRANSIT",
-                18.5314,
-                73.8446,
-                42.0,
-                "Green Park",
-                "West End Mall, Hill Top Circle, Green Park, Main Campus"));
-        busRoutes.save(
-            new BusRoute(
-                "MH-12-AB-1003",
-                "Route 3 - South Express",
-                "Ganesh Kulkarni",
-                "+91 9822077889",
-                50,
-                "ACTIVE",
-                18.5089,
-                73.8690,
-                0.0,
-                "Main Campus",
-                "South Depot, Lake View Road, Main Campus"));
       }
     };
   }
