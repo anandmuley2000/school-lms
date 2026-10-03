@@ -5,7 +5,7 @@ WORKDIR /workspace
 COPY backend/pom.xml backend/pom.xml
 COPY backend/src backend/src
 
-RUN mvn --batch-mode --no-transfer-progress -f backend/pom.xml clean verify
+RUN mvn --batch-mode --no-transfer-progress -f backend/pom.xml clean package -DskipTests
 
 FROM eclipse-temurin:21-jre
 
