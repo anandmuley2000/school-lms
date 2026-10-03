@@ -1,10 +1,5 @@
 spring:
   datasource:
-<<<<<<< Updated upstream
-    url: jdbc:mysql://${DB_HOST}:${DB_PORT:3306}/${DB_NAME}?sslMode=REQUIRED&serverTimezone=UTC
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
-=======
     url: ${SPRING_DATASOURCE_URL}
     username: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
@@ -17,7 +12,6 @@ spring:
       idle-timeout: 600000
       max-lifetime: 1800000
 
->>>>>>> Stashed changes
   jpa:
     hibernate:
       ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}

@@ -1,22 +1,22 @@
 .git
-<<<<<<< Updated upstream
+
 .github
 .idea
 .vscode
-=======
+
 **/.git
 **/.env
 **/.env.*
 !**/.env.example
 !**/.env.*.example
->>>>>>> Stashed changes
+
 **/node_modules
 **/target
 **/build
 **/dist
 **/.expo
 **/.gradle
-<<<<<<< Updated upstream
+
 **/.env
 **/.env.*
 **/*.pem
@@ -25,13 +25,12 @@
 **/*.pfx
 **/*.keystore
 **/*.jks
-=======
->>>>>>> Stashed changes
+
 **/uploads
 *.apk
 *.aab
 *.log
-<<<<<<< Updated upstream
+
 Northstar-School.apk
-=======
->>>>>>> Stashed changes
+
+
