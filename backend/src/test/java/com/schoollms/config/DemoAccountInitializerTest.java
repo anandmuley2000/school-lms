@@ -1,11 +1,13 @@
 package com.schoollms.config;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
-import com.schoollms.domain.Account;
-import com.schoollms.domain.Role;
-import com.schoollms.repository.AccountRepository;
+import com.schoollms.domain.*;
+import com.schoollms.repository.*;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,97 +21,236 @@ import org.springframework.security.authentication.dao.DaoAuthenticationProvider
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 class DemoAccountInitializerTest {
+  private static final List<String[]> DEMO_LOGINS =
+      List.<String[]>of(
+          new String[] {"admin@northstar.local", "Admin@123", "System Administrator", "ADMIN"},
+          new String[] {"teacher@northstar.local", "Teacher@123", "Demo Teacher", "TEACHER"},
+          new String[] {"parent@northstar.local", "Parent@123", "Demo Parent", "PARENT"},
+          new String[] {"student@northstar.local", "Student@123", "Demo Student", "STUDENT"});
+
   private AccountRepository accounts;
+  private StudentRepository students;
+  private TeacherClassRepository teacherClasses;
+  private AttendanceRepository attendance;
+  private HomeworkRepository homework;
+  private ResultRepository results;
+  private FeeRepository fees;
+  private SchoolEventRepository events;
+  private LeaveApplicationRepository leaveApplications;
+  private BusRouteRepository busRoutes;
+  private NotificationRepository notifications;
+  private MessageRepository messages;
   private PasswordEncoder passwordEncoder;
   private DemoAccountInitializer initializer;
 
   @BeforeEach
   void setUp() {
     accounts = mock(AccountRepository.class);
+    students = mock(StudentRepository.class);
+    teacherClasses = mock(TeacherClassRepository.class);
+    attendance = mock(AttendanceRepository.class);
+    homework = mock(HomeworkRepository.class);
+    results = mock(ResultRepository.class);
+    fees = mock(FeeRepository.class);
+    events = mock(SchoolEventRepository.class);
+    leaveApplications = mock(LeaveApplicationRepository.class);
+    busRoutes = mock(BusRouteRepository.class);
+    notifications = mock(NotificationRepository.class);
+    messages = mock(MessageRepository.class);
     passwordEncoder = new SecurityConfig().passwordEncoder();
-    initializer = new DemoAccountInitializer(accounts, passwordEncoder);
+    initializer =
+        new DemoAccountInitializer(
+            accounts,
+            students,
+            teacherClasses,
+            attendance,
+            homework,
+            results,
+            fees,
+            events,
+            leaveApplications,
+            busRoutes,
+            notifications,
+            messages,
+            passwordEncoder);
+
     when(accounts.findByEmail(anyString())).thenReturn(Optional.empty());
+    when(accounts.save(any(Account.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(students.findByStudentCode("DEMO-STU-001")).thenReturn(Optional.empty());
+    when(students.save(any(Student.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(attendance.findByStudent_IdAndDate(null, LocalDate.of(2026, 10, 1)))
+        .thenReturn(Optional.empty());
+    when(busRoutes.findByBusNumber("DEMO-01")).thenReturn(Optional.empty());
+    when(busRoutes.save(any(BusRoute.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+    when(teacherClasses.save(any(TeacherClass.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+    when(attendance.save(any(Attendance.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(homework.save(any(Homework.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(results.save(any(AssessmentResult.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(fees.save(any(FeeRecord.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(events.save(any(SchoolEvent.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(leaveApplications.save(any(LeaveApplication.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+    when(notifications.save(any(Notification.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+    when(messages.save(any(SchoolMessage.class))).thenAnswer(invocation -> invocation.getArgument(0));
   }
 
   @Test
-  void insertsOnlyMissingAccountsWithBcryptHashesAndActiveStatus() throws Exception {
+  void createsHashedAccountsAndRealisticRelatedRowsForSupportedTables() throws Exception {
     initializer.run(new DefaultApplicationArguments(new String[0]));
 
-    ArgumentCaptor<Account> saved = ArgumentCaptor.forClass(Account.class);
-    verify(accounts, times(3)).save(saved.capture());
-    assertEquals(3, saved.getAllValues().size());
+    ArgumentCaptor<Account> savedAccounts = ArgumentCaptor.forClass(Account.class);
+    verify(accounts, times(4)).save(savedAccounts.capture());
+    for (int i = 0; i < DEMO_LOGINS.size(); i++) {
+      Account account = savedAccounts.getAllValues().get(i);
+      String[] login = DEMO_LOGINS.get(i);
+      assertEquals(login[0], account.getEmail());
+      assertEquals(login[2], account.getName());
+      assertEquals(login[3], account.getRole().name());
+      assertTrue(account.isEnabled());
+      assertNotEquals(login[1], account.getPassword());
+      assertTrue(account.getPassword().startsWith("$2"));
+      assertTrue(passwordEncoder.matches(login[1], account.getPassword()));
+      when(accounts.findByEmail(account.getEmail())).thenReturn(Optional.of(account));
+    }
 
-    assertDemoAccount(
-        saved.getAllValues().get(0),
-        "admin@northstar.local",
-        "Admin@123",
-        Role.ADMIN,
-        "System Administrator");
-    assertDemoAccount(
-        saved.getAllValues().get(1),
-        "teacher@northstar.local",
-        "Teacher@123",
-        Role.TEACHER,
-        "Demo Teacher");
-    assertDemoAccount(
-        saved.getAllValues().get(2),
-        "student@northstar.local",
-        "Student@123",
-        Role.STUDENT,
-        "Demo Student");
+    authenticateDemoLogins();
+    ArgumentCaptor<Student> seededStudent = ArgumentCaptor.forClass(Student.class);
+    verify(students).save(seededStudent.capture());
+    verify(teacherClasses).save(any(TeacherClass.class));
+    verify(attendance).save(any(Attendance.class));
+    verify(homework, times(2)).save(any(Homework.class));
+    verify(results, times(2)).save(any(AssessmentResult.class));
+    verify(fees, times(2)).save(any(FeeRecord.class));
+    verify(events, times(2)).save(any(SchoolEvent.class));
+    verify(leaveApplications).save(any(LeaveApplication.class));
+    verify(busRoutes).save(any(BusRoute.class));
+    verify(notifications).save(any(Notification.class));
+    verify(messages).save(any(SchoolMessage.class));
+
+    assertEquals("DEMO-STU-001", seededStudent.getValue().getStudentCode());
+    assertEquals("parent@northstar.local", seededStudent.getValue().getParent().getEmail());
+    assertEquals("student@northstar.local", seededStudent.getValue().getStudentAccount().getEmail());
   }
 
   @Test
-  void preservesAccountsThatAlreadyExist() throws Exception {
+  void doesNotSaveAgainWhenSeedNaturalKeysAlreadyExist() throws Exception {
+    initializer.run(new DefaultApplicationArguments(new String[0]));
+
+    ArgumentCaptor<Account> savedAccounts = ArgumentCaptor.forClass(Account.class);
+    ArgumentCaptor<Student> savedStudents = ArgumentCaptor.forClass(Student.class);
+    ArgumentCaptor<Attendance> savedAttendance = ArgumentCaptor.forClass(Attendance.class);
+    ArgumentCaptor<BusRoute> savedBus = ArgumentCaptor.forClass(BusRoute.class);
+    verify(accounts, times(4)).save(savedAccounts.capture());
+    verify(students).save(savedStudents.capture());
+    verify(attendance).save(savedAttendance.capture());
+    verify(busRoutes).save(savedBus.capture());
+
+    for (Account account : savedAccounts.getAllValues()) {
+      when(accounts.findByEmail(account.getEmail())).thenReturn(Optional.of(account));
+    }
+    Student student = savedStudents.getValue();
+    when(students.findByStudentCode("DEMO-STU-001")).thenReturn(Optional.of(student));
+    when(teacherClasses.existsByTeacher_EmailAndClassNameAndDivision(
+            "teacher@northstar.local", "6", "A"))
+        .thenReturn(true);
+    when(attendance.findByStudent_IdAndDate(student.getId(), LocalDate.of(2026, 10, 1)))
+        .thenReturn(Optional.of(savedAttendance.getValue()));
+    when(homework.existsByTeacher_IdAndClassNameAndTitle(
+            null, "6", "Demo: Fractions review"))
+        .thenReturn(true);
+    when(homework.existsByTeacher_IdAndClassNameAndTitle(
+            null, "6", "Demo: Water cycle poster"))
+        .thenReturn(true);
+    when(results.existsByStudent_IdAndExamNameAndSubject(null, "Demo: Term 1", "Mathematics"))
+        .thenReturn(true);
+    when(results.existsByStudent_IdAndExamNameAndSubject(null, "Demo: Term 1", "Science"))
+        .thenReturn(true);
+    when(fees.existsByStudent_IdAndDescription(null, "Demo: Term 1 tuition")).thenReturn(true);
+    when(fees.existsByStudent_IdAndDescription(null, "Demo: Term 2 tuition")).thenReturn(true);
+    when(events.existsByTitle("Demo: Annual Science Fair")).thenReturn(true);
+    when(events.existsByTitle("Demo: Parent-Teacher Meeting")).thenReturn(true);
+    when(leaveApplications.existsByRequester_IdAndStudent_IdAndReason(
+            null, student.getId(), "Demo: Family appointment"))
+        .thenReturn(true);
+    when(busRoutes.findByBusNumber("DEMO-01")).thenReturn(Optional.of(savedBus.getValue()));
+    when(notifications.existsByRecipient_IdAndTitleAndMessage(
+            null,
+            "Demo: Welcome to School LMS",
+            "Your demo account is ready. Explore your classes and updates here."))
+        .thenReturn(true);
+    when(messages.existsBySender_IdAndRecipient_IdAndSubjectAndBody(
+            null,
+            null,
+            "Demo: Welcome to the class",
+            "Welcome! Please review the class updates and reach out with any questions."))
+        .thenReturn(true);
+
+    clearInvocations(
+        accounts,
+        students,
+        teacherClasses,
+        attendance,
+        homework,
+        results,
+        fees,
+        events,
+        leaveApplications,
+        busRoutes,
+        notifications,
+        messages);
+    initializer.run(new DefaultApplicationArguments(new String[0]));
+
+    verifyNoSaves();
+  }
+
+  @Test
+  void preservesAnExistingDemoAccount() throws Exception {
+    String existingPassword = "KeepExisting@123";
     Account existing =
         new Account(
             "admin@northstar.local",
-            passwordEncoder.encode("existing-password"),
+            passwordEncoder.encode(existingPassword),
             Role.ADMIN,
-            "Existing Administrator",
+            "Pre-existing Administrator",
             null);
-    when(accounts.findByEmail("admin@northstar.local")).thenReturn(Optional.of(existing));
+    when(accounts.findByEmail(existing.getEmail())).thenReturn(Optional.of(existing));
 
     initializer.run(new DefaultApplicationArguments(new String[0]));
 
-    verify(accounts, times(3)).findByEmail(anyString());
-    verify(accounts, times(2)).save(any(Account.class));
-    assertEquals("Existing Administrator", existing.getName());
-    assertTrue(passwordEncoder.matches("existing-password", existing.getPassword()));
+    assertEquals("Pre-existing Administrator", existing.getName());
+    assertTrue(passwordEncoder.matches(existingPassword, existing.getPassword()));
+    verify(accounts, times(3)).save(any(Account.class));
   }
 
-  @Test
-  void generatedPasswordHashAuthenticatesThroughSpringSecurityDaoProvider() throws Exception {
-    initializer.run(new DefaultApplicationArguments(new String[0]));
-
-    ArgumentCaptor<Account> saved = ArgumentCaptor.forClass(Account.class);
-    verify(accounts, times(3)).save(saved.capture());
-
+  private void authenticateDemoLogins() {
     DaoAuthenticationProvider provider =
         new DaoAuthenticationProvider(new SecurityConfig().userDetailsService(accounts));
     provider.setPasswordEncoder(passwordEncoder);
     AuthenticationManager manager = new ProviderManager(provider);
 
-    List<String> passwords = List.of("Admin@123", "Teacher@123", "Student@123");
-    for (int i = 0; i < saved.getAllValues().size(); i++) {
-      Account account = saved.getAllValues().get(i);
-      when(accounts.findByEmail(account.getEmail())).thenReturn(Optional.of(account));
+    for (String[] login : DEMO_LOGINS) {
       assertTrue(
           manager
-              .authenticate(
-                  new UsernamePasswordAuthenticationToken(account.getEmail(), passwords.get(i)))
+              .authenticate(new UsernamePasswordAuthenticationToken(login[0], login[1]))
               .isAuthenticated());
     }
   }
 
-  private void assertDemoAccount(
-      Account account, String email, String rawPassword, Role role, String name) {
-    assertEquals(email, account.getEmail());
-    assertEquals(role, account.getRole());
-    assertEquals(name, account.getName());
-    assertTrue(account.isEnabled());
-    assertNotEquals(rawPassword, account.getPassword());
-    assertTrue(passwordEncoder.matches(rawPassword, account.getPassword()));
-    assertTrue(account.getPassword().startsWith("$2"));
+  private void verifyNoSaves() {
+    verify(accounts, never()).save(any(Account.class));
+    verify(students, never()).save(any(Student.class));
+    verify(teacherClasses, never()).save(any(TeacherClass.class));
+    verify(attendance, never()).save(any(Attendance.class));
+    verify(homework, never()).save(any(Homework.class));
+    verify(results, never()).save(any(AssessmentResult.class));
+    verify(fees, never()).save(any(FeeRecord.class));
+    verify(events, never()).save(any(SchoolEvent.class));
+    verify(leaveApplications, never()).save(any(LeaveApplication.class));
+    verify(busRoutes, never()).save(any(BusRoute.class));
+    verify(notifications, never()).save(any(Notification.class));
+    verify(messages, never()).save(any(SchoolMessage.class));
   }
 }

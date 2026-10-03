@@ -8,4 +8,6 @@ public interface LeaveApplicationRepository extends JpaRepository<LeaveApplicati
   List<LeaveApplication> findAllByOrderByCreatedAtDesc();
 
   List<LeaveApplication> findByRequester_EmailOrderByCreatedAtDesc(String email);
+
+  boolean existsByRequester_IdAndStudent_IdAndReason(Long requesterId, Long studentId, String reason);
 }

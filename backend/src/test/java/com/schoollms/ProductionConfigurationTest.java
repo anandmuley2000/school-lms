@@ -38,6 +38,10 @@ class ProductionConfigurationTest {
           context.getEnvironment().getProperty("spring.datasource.username"));
 
       assertEquals(
+          "false",
+          context.getEnvironment().getProperty("app.demo.data-enabled"));
+
+      assertEquals(
           "environment-password",
           context.getEnvironment().getProperty("spring.datasource.password"));
     }

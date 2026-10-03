@@ -6,4 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface HomeworkRepository extends JpaRepository<Homework, Long> {
   List<Homework> findByClassNameOrderByDueDateAsc(String className);
+
+  boolean existsByTeacher_IdAndClassNameAndTitle(Long teacherId, String className, String title);
 }
