@@ -14,7 +14,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: ${SPRING_JPA_HIBERNATE_DDL_AUTO:update}
+      ddl-auto: validate
 
     show-sql: ${SPRING_JPA_SHOW_SQL:false}
 
@@ -29,6 +29,7 @@ spring:
 
 server:
   port: ${PORT:8080}
+  address: 0.0.0.0
 
 app:
   jwt:
@@ -39,6 +40,7 @@ app:
 
   demo:
     reset-enabled: false
+    data-enabled: ${DEMO_DATA_ENABLED:false}
 
 management:
   endpoints:

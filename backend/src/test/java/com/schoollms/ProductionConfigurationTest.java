@@ -15,12 +15,9 @@ class ProductionConfigurationTest {
       context.getEnvironment().setActiveProfiles("production");
 
       TestPropertyValues.of(
-              "DB_HOST=db.example.invalid",
-              "DB_PORT=15432",
-              "DB_NAME=school",
-              "DB_SSL_MODE=VERIFY_IDENTITY",
-              "DB_USERNAME=environment-user",
-              "DB_PASSWORD=environment-password",
+              "SPRING_DATASOURCE_URL=jdbc:mysql://db.example.invalid:15432/school?sslMode=VERIFY_IDENTITY&serverTimezone=UTC",
+              "SPRING_DATASOURCE_USERNAME=environment-user",
+              "SPRING_DATASOURCE_PASSWORD=environment-password",
               "PORT=10000",
               "JWT_SECRET=test-only-secret",
               "CORS_ALLOWED_ORIGINS=https://admin.example.invalid")
@@ -52,15 +49,13 @@ class ProductionConfigurationTest {
       context.getEnvironment().setActiveProfiles("production");
 
       TestPropertyValues.of(
-              "DB_HOST=db.example.invalid",
-              "DB_PORT=15432",
-              "DB_NAME=school",
-              "DB_SSL_MODE=VERIFY_IDENTITY",
-              "DB_USERNAME=environment-user",
-              "DB_PASSWORD=environment-password",
+              "SPRING_DATASOURCE_URL=jdbc:mysql://db.example.invalid:15432/school?sslMode=VERIFY_IDENTITY&serverTimezone=UTC",
+              "SPRING_DATASOURCE_USERNAME=environment-user",
+              "SPRING_DATASOURCE_PASSWORD=environment-password",
               "PORT=10000",
               "JWT_SECRET=test-only-secret-with-at-least-32-bytes",
-              "CORS_ALLOWED_ORIGINS=https://admin.example.invalid")
+              "CORS_ALLOWED_ORIGINS=https://admin.example.invalid",
+              "DEMO_DATA_ENABLED=true")
           .applyTo(context.getEnvironment());
 
       new ConfigDataApplicationContextInitializer().initialize(context);
@@ -80,6 +75,14 @@ class ProductionConfigurationTest {
       assertEquals(
           "false",
           context.getEnvironment().getProperty("app.demo.reset-enabled"));
+
+      assertEquals(
+          "true",
+          context.getEnvironment().getProperty("app.demo.data-enabled"));
+
+      assertEquals(
+          "validate",
+          context.getEnvironment().getProperty("spring.jpa.hibernate.ddl-auto"));
     }
   }
 
