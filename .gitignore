@@ -1,13 +1,23 @@
+.git
+.idea/
+.vscode/
+*.iml
+.fleet/
+
+# Local environment files; keep examples tracked.
 .env
-**/.env
 .env.*
 !.env.example
-!.env.*.example
+!.env.production.example
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.production.example
 **/.env.local
 application-local.yml
 **/application-local.yml
 
-# Secrets and local machine credentials
+# Credentials and signing material.
 *.pem
 *.key
 *.p12
@@ -17,14 +27,9 @@ application-local.yml
 local.properties
 credentials.json
 secrets.*
+google-services.json
 
-# IDE and editor state
-.idea/
-.vscode/
-*.iml
-.fleet/
-
-# Build outputs and installed dependencies
+# Dependencies and generated output.
 node_modules/
 target/
 build/
@@ -36,18 +41,13 @@ npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 .DS_Store
-
-# Android generated files (keep source project and Gradle wrapper)
-**/android/.gradle/
-**/android/.kotlin/
-**/android/build/
-**/android/app/build/
-**/android/.cxx/
-**/android/app/.cxx/
-**/android/captures/
-
+**/.expo/
+**/.gradle/
+**/.kotlin/
+**/.cxx/
+**/captures/
+android/app/src/main/assets/public/
 .tools/
 .expo-home/
 .npm-cache/
-**/.expo/
-backend/uploads/
+**/uploads/

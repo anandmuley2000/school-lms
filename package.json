@@ -5,9 +5,15 @@
   "scripts": {
     "frontend": "npm --prefix admin run dev",
     "backend": "mvnw.cmd -f backend/pom.xml spring-boot:run",
-    "dev": "concurrently \"npm run backend\" \"npm run frontend\""
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "cap:sync": "cap sync android"
   },
   "devDependencies": {
     "concurrently": "^9.0.0"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2"
   }
 }

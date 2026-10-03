@@ -74,11 +74,39 @@ public class SecurityConfig {
             .map(String::trim)
             .filter(origin -> !origin.isEmpty())
             .toList();
-    if (environment.acceptsProfiles(Profiles.of("production"))
-        && origins.stream()
-            .anyMatch(origin -> origin.equals("*") || !origin.startsWith("https://"))) {
-      throw new IllegalStateException(
-          "CORS_ALLOWED_ORIGINS must contain only explicit HTTPS origins in production; wildcards are not allowed");
+    if (environment.acceptsProfiles(Profiles.of("production"))) {
+      if (origins.isEmpty()) {
+        throw new IllegalStateException(
+            "CORS_ALLOWED_ORIGINS must contain at least one explicit HTTPS origin in production");
+      }
+      for (String origin : origins) {
+        try {
+          java.net.URI parsed = java.net.URI.create(origin);
+          String host = parsed.getHost() == null ? "" : parsed.getHost().toLowerCase(java.util.Locale.ROOT);
+          boolean ipLiteral = host.matches("(?:[0-9]{1,3}\\.){3}[0-9]{1,3}") || host.startsWith("[");
+          if (!"https".equalsIgnoreCase(parsed.getScheme())
+              || parsed.getHost() == null
+              || ipLiteral
+              || host.endsWith(".local")
+              || host.endsWith(".localhost")
+              || parsed.getRawUserInfo() != null
+              || (parsed.getRawPath() != null
+                  && !parsed.getRawPath().isEmpty()
+                  && !"/".equals(parsed.getRawPath()))
+              || parsed.getRawQuery() != null
+              || parsed.getRawFragment() != null
+              || origin.toUpperCase(java.util.Locale.ROOT).contains("YOUR-")
+              || host.equals("example.com")
+              || host.equals("example.invalid")
+              || host.endsWith(".example.invalid")) {
+            throw new IllegalArgumentException("Invalid production origin");
+          }
+        } catch (IllegalArgumentException ex) {
+          throw new IllegalStateException(
+              "CORS_ALLOWED_ORIGINS must contain only actual HTTPS origins without paths or wildcards in production",
+              ex);
+        }
+      }
     }
     c.setAllowedOrigins(origins);
     c.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));

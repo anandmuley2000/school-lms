@@ -15,18 +15,26 @@ class SecurityConfigCorsTest {
   }
 
   @Test
-  void productionAllowsNoOriginsButRejectsWildcardAndNonHttpsOrigins() {
-    assertDoesNotThrow(() -> securityConfig.corsConfigurationSource("", productionEnvironment));
+  void productionRequiresActualHttpsOriginsAndRejectsWildcardAndNonHttpsOrigins() {
+    assertThrows(
+        IllegalStateException.class,
+        () -> securityConfig.corsConfigurationSource("", productionEnvironment));
     assertThrows(
         IllegalStateException.class,
         () -> securityConfig.corsConfigurationSource("*", productionEnvironment));
     assertThrows(
         IllegalStateException.class,
         () -> securityConfig.corsConfigurationSource("http://admin.example.invalid", productionEnvironment));
+    assertThrows(
+        IllegalStateException.class,
+        () -> securityConfig.corsConfigurationSource("https://YOUR-ADMIN-DOMAIN.onrender.com", productionEnvironment));
+    assertThrows(
+        IllegalStateException.class,
+        () -> securityConfig.corsConfigurationSource("https://127.0.0.1", productionEnvironment));
     assertDoesNotThrow(
         () ->
             securityConfig.corsConfigurationSource(
-                "https://admin.example.invalid,https://staff.example.invalid",
+                "https://school-admin.test,https://localhost",
                 productionEnvironment));
   }
 }

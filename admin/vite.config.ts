@@ -6,19 +6,40 @@ export default defineConfig(({ command, mode }) => {
   const apiBaseUrl = env.VITE_API_BASE_URL?.trim();
 
   if (command === "build" && mode === "production") {
+    let parsedUrl: URL | undefined;
+    try {
+      parsedUrl = apiBaseUrl ? new URL(apiBaseUrl) : undefined;
+    } catch {
+      // Report the same actionable production configuration error below.
+    }
+    const host = parsedUrl?.hostname.toLowerCase() ?? "";
+    const isIpLiteral =
+      /^(?:\d{1,3}\.){3}\d{1,3}$/.test(host) || host.startsWith("[");
+    const isLocalHost =
+      host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local");
     if (
-      !apiBaseUrl ||
-      !apiBaseUrl.startsWith("https://") ||
-      apiBaseUrl.includes("YOUR-ONLINE-API-DOMAIN")
+      !parsedUrl ||
+      parsedUrl.protocol !== "https:" ||
+      !parsedUrl.pathname.replace(/\/$/, "").endsWith("/api") ||
+      parsedUrl.username ||
+      parsedUrl.password ||
+      parsedUrl.search ||
+      parsedUrl.hash ||
+      isIpLiteral ||
+      isLocalHost ||
+      /YOUR-|(?:^|\.)example(?:\.|$)/i.test(host)
     ) {
       throw new Error(
-        "Production builds require VITE_API_BASE_URL to be your deployed HTTPS API URL.",
+        "Production builds require VITE_API_BASE_URL to be the real deployed HTTPS API URL ending in /api. Copy admin/.env.production.example and replace its placeholder first.",
       );
     }
   }
 
   return {
     plugins: [react()],
-    server: { port: 5173 },
+    server: {
+      port: 5173,
+      host: "0.0.0.0",
+    },
   };
 });
