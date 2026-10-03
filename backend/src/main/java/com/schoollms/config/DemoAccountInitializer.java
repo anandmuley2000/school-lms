@@ -11,7 +11,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-/** Seeds stable demo rows only when explicitly enabled; pre-existing rows are left untouched. */
+/** Seeds stable demo rows only when explicitly enabled; synchronizes only its exact demo accounts. */
 @Component
 @ConditionalOnProperty(prefix = "app.demo", name = "data-enabled", havingValue = "true")
 public class DemoAccountInitializer implements ApplicationRunner {
@@ -215,6 +215,16 @@ public class DemoAccountInitializer implements ApplicationRunner {
   private Account account(String email, String password, Role role, String name) {
     return accounts
         .findByEmailIgnoreCase(email)
+        .map(
+            existing -> {
+              boolean passwordMatches = passwordEncoder.matches(password, existing.getPassword());
+              if (!passwordMatches || existing.getRole() != role || !existing.isEnabled()) {
+                String encodedPassword =
+                    passwordMatches ? existing.getPassword() : passwordEncoder.encode(password);
+                existing.synchronizeDemoCredentials(encodedPassword, role);
+              }
+              return existing;
+            })
         .orElseGet(
             () -> accounts.save(new Account(email, passwordEncoder.encode(password), role, name, null)));
   }

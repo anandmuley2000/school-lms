@@ -70,6 +70,12 @@ public class Account implements UserDetails {
     this.passwordHash = encodedPassword;
   }
 
+  public void synchronizeDemoCredentials(String encodedPassword, Role expectedRole) {
+    this.passwordHash = encodedPassword;
+    this.role = expectedRole;
+    this.active = true;
+  }
+
   @Override
   public Collection<? extends GrantedAuthority> getAuthorities() {
     return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));

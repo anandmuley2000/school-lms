@@ -19,6 +19,7 @@ import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class DemoAccountInitializerTest {
   private static final List<String[]> DEMO_LOGINS =
@@ -207,22 +208,60 @@ class DemoAccountInitializerTest {
   }
 
   @Test
-  void preservesAnExistingDemoAccount() throws Exception {
-    String existingPassword = "KeepExisting@123";
-    Account existing =
+  void synchronizesExistingDemoAccountsWithoutDuplicatesAndLeavesNonDemoAccountsUntouched()
+      throws Exception {
+    Role[] roles = Role.values();
+    List<Account> existingDemoAccounts = new java.util.ArrayList<>();
+    for (int i = 0; i < DEMO_LOGINS.size(); i++) {
+      String[] login = DEMO_LOGINS.get(i);
+      Account existing =
+          new Account(
+              login[0],
+              passwordEncoder.encode("StalePassword@123"),
+              roles[(i + 1) % roles.length],
+              "Keep This Name " + i,
+              "555-010" + i);
+      ReflectionTestUtils.setField(existing, "id", 100L + i);
+      ReflectionTestUtils.setField(existing, "active", false);
+      existingDemoAccounts.add(existing);
+      when(accounts.findByEmailIgnoreCase(login[0])).thenReturn(Optional.of(existing));
+    }
+
+    String unrelatedPassword = "UnrelatedPassword@123";
+    Account unrelated =
         new Account(
-            "admin@northstar.local",
-            passwordEncoder.encode(existingPassword),
-            Role.ADMIN,
-            "Pre-existing Administrator",
-            null);
-    when(accounts.findByEmailIgnoreCase(existing.getEmail())).thenReturn(Optional.of(existing));
+            "unrelated@northstar.local",
+            passwordEncoder.encode(unrelatedPassword),
+            Role.PARENT,
+            "Unrelated Account",
+            "555-0199");
+    ReflectionTestUtils.setField(unrelated, "id", 999L);
+    ReflectionTestUtils.setField(unrelated, "active", false);
 
     initializer.run(new DefaultApplicationArguments(new String[0]));
 
-    assertEquals("Pre-existing Administrator", existing.getName());
-    assertTrue(passwordEncoder.matches(existingPassword, existing.getPassword()));
-    verify(accounts, times(3)).save(any(Account.class));
+    verify(accounts, never()).save(any(Account.class));
+    for (int i = 0; i < DEMO_LOGINS.size(); i++) {
+      String[] login = DEMO_LOGINS.get(i);
+      Account existing = existingDemoAccounts.get(i);
+      assertEquals(100L + i, existing.getId());
+      assertEquals("Keep This Name " + i, existing.getName());
+      assertEquals("555-010" + i, existing.getPhone());
+      assertEquals(login[3], existing.getRole().name());
+      assertTrue(existing.isEnabled());
+      assertTrue(passwordEncoder.matches(login[1], existing.getPassword()));
+      assertFalse(passwordEncoder.matches("StalePassword@123", existing.getPassword()));
+    }
+
+    authenticateDemoLogins();
+
+    assertEquals(999L, unrelated.getId());
+    assertEquals("unrelated@northstar.local", unrelated.getEmail());
+    assertEquals("Unrelated Account", unrelated.getName());
+    assertEquals(Role.PARENT, unrelated.getRole());
+    assertFalse(unrelated.isEnabled());
+    assertTrue(passwordEncoder.matches(unrelatedPassword, unrelated.getPassword()));
+    verify(accounts, never()).findByEmailIgnoreCase("unrelated@northstar.local");
   }
 
   private void authenticateDemoLogins() {
