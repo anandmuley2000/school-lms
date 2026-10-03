@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import java.util.Map;
+import java.util.Locale;
 import org.springframework.security.authentication.*;
 import org.springframework.web.bind.annotation.*;
 
@@ -27,9 +28,9 @@ public class AuthController {
 
   @PostMapping("/login")
   public Map<String, Object> login(@Valid @RequestBody LoginRequest request) {
-    String email = request.email().toLowerCase();
+    String email = request.email().trim().toLowerCase(Locale.ROOT);
     auth.authenticate(new UsernamePasswordAuthenticationToken(email, request.password()));
-    Account a = accounts.findByEmail(email).orElseThrow();
+    Account a = accounts.findByEmailIgnoreCase(email).orElseThrow();
     return Map.of(
         "token",
         jwt.issue(a),

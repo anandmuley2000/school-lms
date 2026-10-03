@@ -74,7 +74,7 @@ class DemoAccountInitializerTest {
             messages,
             passwordEncoder);
 
-    when(accounts.findByEmail(anyString())).thenReturn(Optional.empty());
+    when(accounts.findByEmailIgnoreCase(anyString())).thenReturn(Optional.empty());
     when(accounts.save(any(Account.class))).thenAnswer(invocation -> invocation.getArgument(0));
     when(students.findByStudentCode("DEMO-STU-001")).thenReturn(Optional.empty());
     when(students.save(any(Student.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -113,7 +113,7 @@ class DemoAccountInitializerTest {
       assertNotEquals(login[1], account.getPassword());
       assertTrue(account.getPassword().startsWith("$2"));
       assertTrue(passwordEncoder.matches(login[1], account.getPassword()));
-      when(accounts.findByEmail(account.getEmail())).thenReturn(Optional.of(account));
+      when(accounts.findByEmailIgnoreCase(account.getEmail())).thenReturn(Optional.of(account));
     }
 
     authenticateDemoLogins();
@@ -149,7 +149,7 @@ class DemoAccountInitializerTest {
     verify(busRoutes).save(savedBus.capture());
 
     for (Account account : savedAccounts.getAllValues()) {
-      when(accounts.findByEmail(account.getEmail())).thenReturn(Optional.of(account));
+      when(accounts.findByEmailIgnoreCase(account.getEmail())).thenReturn(Optional.of(account));
     }
     Student student = savedStudents.getValue();
     when(students.findByStudentCode("DEMO-STU-001")).thenReturn(Optional.of(student));
@@ -216,7 +216,7 @@ class DemoAccountInitializerTest {
             Role.ADMIN,
             "Pre-existing Administrator",
             null);
-    when(accounts.findByEmail(existing.getEmail())).thenReturn(Optional.of(existing));
+    when(accounts.findByEmailIgnoreCase(existing.getEmail())).thenReturn(Optional.of(existing));
 
     initializer.run(new DefaultApplicationArguments(new String[0]));
 

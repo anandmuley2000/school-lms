@@ -31,7 +31,7 @@ public class SecurityConfig {
   UserDetailsService userDetailsService(AccountRepository accounts) {
     return email ->
         accounts
-            .findByEmail(email)
+            .findByEmailIgnoreCase(email)
             .orElseThrow(() -> new UsernameNotFoundException("Account not found"));
   }
 

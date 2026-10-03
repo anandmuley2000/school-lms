@@ -214,7 +214,7 @@ public class DemoAccountInitializer implements ApplicationRunner {
 
   private Account account(String email, String password, Role role, String name) {
     return accounts
-        .findByEmail(email)
+        .findByEmailIgnoreCase(email)
         .orElseGet(
             () -> accounts.save(new Account(email, passwordEncoder.encode(password), role, name, null)));
   }
