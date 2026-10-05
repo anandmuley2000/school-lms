@@ -1,5 +1,5 @@
 const API_BASE_URL = (
-  import.meta.env.VITE_API_URL?.trim() || import.meta.env.VITE_API_BASE_URL?.trim() || ""
+  import.meta.env.VITE_API_BASE_URL?.trim() || import.meta.env.VITE_API_URL?.trim() || ""
 ).replace(/\/+$/, "");
 const REQUEST_TIMEOUT_MS = 15_000;
 
@@ -178,7 +178,7 @@ function responseMessage(status: number) {
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!API_BASE_URL) {
-    throw new ApiError("School API URL is not configured. Set VITE_API_URL and rebuild the admin app.");
+    throw new ApiError("School API URL is not configured. Set VITE_API_BASE_URL and rebuild the admin app.");
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);

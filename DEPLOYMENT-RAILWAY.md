@@ -4,13 +4,13 @@ This repository is a monorepo, but the API image is built from the repository ro
 
 ## Exact Railway service settings
 
-This project uses three existing Railway services: `courteous-truth` for the Spring Boot API, `MySQL` for the database, and `school-lms` for the React admin frontend. The root [`railway.json`](railway.json) selects the backend Dockerfile; the frontend must use [`admin/railway.json`](admin/railway.json). Keep these service roots and health checks separate. Public service domains are assigned in the Railway dashboard and are not configured in this repository.
+This project uses three existing Railway services: `school-lms` for the Spring Boot API, `MySQL` for the database, and `courteous-truth` for the React admin frontend. The root [`railway.json`](railway.json) selects the backend Dockerfile; the frontend must use [`admin/railway.json`](admin/railway.json). Keep these service roots and health checks separate. The currently assigned domains are `https://school-lms-production-0a78.up.railway.app` (API) and `https://courteous-truth-production-470f.up.railway.app` (frontend).
 
-Configure the existing API service (do not create a second project or service):
+Configure the existing backend API service `school-lms` (do not create a second project or service):
 
 | Setting | Value |
 | --- | --- |
-| Source repository | This repository and the branch you deploy |
+| Source repository | `anandvmuley/school-lms`, branch `develop` |
 | Root Directory | `/` (repository root; do not use `/backend`) |
 | Config as Code / Config File Path | `/railway.json` |
 | Builder | Dockerfile (`DOCKERFILE`) |
@@ -35,10 +35,10 @@ Set these in the Railway service's Variables tab. Keep all passwords and secrets
 | `DB_PASSWORD` | `${{MySQL.MYSQLPASSWORD}}` |
 | `DB_SSL_MODE` | `REQUIRED` when supported by the database provider |
 | `JWT_SECRET` | Random secret of at least 32 bytes |
-| `CORS_ALLOWED_ORIGINS` | Comma-separated exact HTTPS origins for deployed web clients, without paths or wildcards |
+| `CORS_ALLOWED_ORIGINS` | `https://courteous-truth-production-470f.up.railway.app` (add other deployed client origins as needed, comma-separated) |
 | `DEMO_DATA_ENABLED` | `false` |
 
-Railway variable references use the MySQL service name exactly as shown in the project. The expressions above assume its service is named `MySQL`; if the dashboard label differs, replace `MySQL` in each reference with that exact service name. Add `CORS_ALLOWED_ORIGINS` after confirming the actual frontend domain. If that domain is `https://courteous-truth-production-470f.up.railway.app`, use that origin only when the dashboard confirms it is the frontend; do not set the API's own domain as a browser origin by assumption.
+Railway variable references use the MySQL service name exactly as shown in the project. The expressions above assume its service is named `MySQL`; if the dashboard label differs, replace `MySQL` in each reference with that exact service name. The frontend origin above is the one supplied for the existing `courteous-truth` service.
 
 Railway supplies `PORT` to the service. The production Spring configuration binds to `0.0.0.0` and uses `${PORT:8080}`. Do not set `PORT` to a value that conflicts with Railway's assigned port. `EXPOSE 8080` documents the app's fallback/container port; Railway routes to the runtime `PORT`.
 
@@ -64,7 +64,7 @@ The production datasource reads `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, 
 
 ## Web admin and mobile clients
 
-For the existing Railway frontend service `school-lms`, set **Root Directory** to `/admin`, **Config File Path** to `/admin/railway.json`, and **Builder** to Railpack. Its build command is `npm ci --include=dev && npm run build`; its start command serves `dist` on `0.0.0.0:$PORT`, and its health check is `/` (never `/actuator/health`). Set its build variable `VITE_API_URL` to the actual `courteous-truth` backend HTTPS URL ending in `/api` (the older `VITE_API_BASE_URL` name remains accepted for compatibility). Add the frontend's exact HTTPS origin to the backend's `CORS_ALLOWED_ORIGINS`. Local development remains independent and may use a local API; a production HTTPS URL is not a prerequisite for the local development build.
+For the existing Railway frontend service `courteous-truth`, use repository `anandvmuley/school-lms`, branch `develop`, **Root Directory** `/admin`, **Config File Path** `/admin/railway.json`, and **Builder** Railpack (Railway's current Nixpacks successor). Do not use the backend Dockerfile. The build command is `npm install && npm run build`; the start command is `npx serve -s dist -l $PORT`; target port is `8080`; and health check path is `/` (never `/actuator/health`). Set the frontend build variable `VITE_API_BASE_URL` to `https://school-lms-production-0a78.up.railway.app/api`. The backend service `school-lms` must allow the frontend origin with `CORS_ALLOWED_ORIGINS=https://courteous-truth-production-470f.up.railway.app`. Local development remains independent and may use a local API; the production URL is not a prerequisite for a local development build.
 
 The Expo app reads `EXPO_PUBLIC_API_BASE_URL` at build time (or `expo.extra.apiBaseUrl` from its app config). For a production mobile build set it to the actual `https://YOUR-BACKEND-DOMAIN/api`, set `APP_ENV=production`, and build from `mobile/`. Keep Android signing files and passwords in local Gradle properties or CI secrets. The repository does not contain a production signing key.
 

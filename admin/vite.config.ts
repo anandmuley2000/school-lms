@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
-  const apiBaseUrl = env.VITE_API_URL?.trim() || env.VITE_API_BASE_URL?.trim();
+  const apiBaseUrl = env.VITE_API_BASE_URL?.trim() || env.VITE_API_URL?.trim();
 
   if (command === "build" && mode === "production") {
     let parsedUrl: URL | undefined;
@@ -30,7 +30,7 @@ export default defineConfig(({ command, mode }) => {
       /YOUR-|(?:^|\.)example(?:\.|$)/i.test(host)
     ) {
       throw new Error(
-        "Production builds require VITE_API_URL to be the real deployed HTTPS API URL ending in /api. Copy admin/.env.production.example and replace its placeholder first.",
+        "Production builds require VITE_API_BASE_URL to be the deployed HTTPS API URL ending in /api. Copy admin/.env.production.example and configure it first.",
       );
     }
   }
