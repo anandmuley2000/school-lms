@@ -1,5 +1,7 @@
 server:
-  port: ${PORT:10000}
+  # Railway injects PORT at runtime; 8080 is the container's safe fallback.
+  port: ${PORT:8080}
+  address: 0.0.0.0
 spring:
   profiles:
     default: ${SPRING_PROFILES_DEFAULT:development}

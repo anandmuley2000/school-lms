@@ -33,6 +33,10 @@ class ProductionConfigurationTest {
           context.getEnvironment().getProperty("server.port"));
 
       assertEquals(
+          "0.0.0.0",
+          context.getEnvironment().getProperty("server.address"));
+
+      assertEquals(
           "jdbc:mysql://db.example.invalid:15432/school?sslMode=VERIFY_IDENTITY&serverTimezone=UTC",
           context.getEnvironment().getProperty("spring.datasource.url"));
 
@@ -47,6 +51,35 @@ class ProductionConfigurationTest {
       assertEquals(
           "environment-password",
           context.getEnvironment().getProperty("spring.datasource.password"));
+      assertEquals(
+          "health",
+          context.getEnvironment().getProperty("management.endpoints.web.exposure.include"));
+    }
+  }
+
+  @Test
+  void serverUsesRailwayCompatiblePortAndBindAddressWhenPortIsNotInjected() {
+    try (var context = new GenericApplicationContext()) {
+      context.getEnvironment().setActiveProfiles("production");
+
+      TestPropertyValues.of(
+              "DB_HOST=db.internal",
+              "DB_NAME=school",
+              "DB_USERNAME=environment-user",
+              "DB_PASSWORD=environment-password",
+              "DB_SSL_MODE=REQUIRED",
+              "JWT_SECRET=test-only-secret-with-at-least-32-bytes",
+              "CORS_ALLOWED_ORIGINS=https://admin.school.example")
+          .applyTo(context.getEnvironment());
+
+      new ConfigDataApplicationContextInitializer().initialize(context);
+
+      assertEquals("8080", context.getEnvironment().getProperty("server.port"));
+      assertEquals("0.0.0.0", context.getEnvironment().getProperty("server.address"));
+      assertEquals(
+          "jdbc:mysql://db.internal:3306/school?sslMode=REQUIRED&serverTimezone=UTC",
+          context.getEnvironment().getProperty("spring.datasource.url"));
+      assertEquals("false", context.getEnvironment().getProperty("app.demo.data-enabled"));
     }
   }
 

@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -74,6 +75,13 @@ class AuthLoginFlowTest {
     }
     when(accounts.findByEmailIgnoreCase(anyString()))
         .thenAnswer(invocation -> Optional.ofNullable(demoAccounts.get(invocation.getArgument(0))));
+  }
+
+  @Test
+  void actuatorHealthIsPublicWithoutJwtAuthentication() throws Exception {
+    // This MVC slice does not install Actuator's endpoint handler, so 404 proves
+    // the request passed the security chain; a protected request would be 401.
+    mvc.perform(get("/actuator/health")).andExpect(status().isNotFound());
   }
 
   @Test
