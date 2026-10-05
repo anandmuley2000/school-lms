@@ -5,7 +5,7 @@ export type User = {
   id: number;
   email: string;
   name: string;
-  role: "ADMIN" | "TEACHER" | "PARENT" | "STUDENT";
+  role: "ADMIN" | "TEACHER" | "PARENT";
 };
 export type Student = {
   id: number;
@@ -92,6 +92,7 @@ export type SchoolEvent = {
   eventDate: string;
   location: string;
   createdBy: string;
+  holiday: boolean;
 };
 export type BusRoute = {
   id: number;

@@ -2,6 +2,8 @@ package com.schoollms.repository;
 
 import com.schoollms.domain.Account;
 import com.schoollms.domain.Role;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -11,4 +13,6 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
   Optional<Account> findByEmailIgnoreCase(String email);
 
   long countByRole(Role role);
+
+  List<Account> findByRoleInAndActiveTrue(Collection<Role> roles);
 }

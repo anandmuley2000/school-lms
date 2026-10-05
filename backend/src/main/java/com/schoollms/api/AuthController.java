@@ -1,6 +1,7 @@
 package com.schoollms.api;
 
 import com.schoollms.domain.Account;
+import com.schoollms.domain.Role;
 import com.schoollms.repository.AccountRepository;
 import com.schoollms.security.JwtService;
 import jakarta.validation.Valid;
@@ -9,6 +10,8 @@ import jakarta.validation.constraints.NotBlank;
 import java.util.Map;
 import java.util.Locale;
 import org.springframework.security.authentication.*;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -31,6 +34,9 @@ public class AuthController {
     String email = request.email().trim().toLowerCase(Locale.ROOT);
     auth.authenticate(new UsernamePasswordAuthenticationToken(email, request.password()));
     Account a = accounts.findByEmailIgnoreCase(email).orElseThrow();
+    if (a.getRole() == Role.STUDENT)
+      throw new ResponseStatusException(
+          HttpStatus.FORBIDDEN, "Student access is managed from the linked parent account");
     return Map.of(
         "token",
         jwt.issue(a),
@@ -51,6 +57,9 @@ public class AuthController {
   @GetMapping("/me")
   public Map<String, Object> me(
       @org.springframework.security.core.annotation.AuthenticationPrincipal Account a) {
+    if (a.getRole() == Role.STUDENT)
+      throw new ResponseStatusException(
+          HttpStatus.FORBIDDEN, "Student access is managed from the linked parent account");
     return Map.of(
         "id", a.getId(), "email", a.getEmail(), "name", a.getName(), "role", a.getRole().name());
   }

@@ -30,10 +30,15 @@ public class LeaveApplicationController {
 
   @GetMapping
   public List<LeaveApplicationView> list(@AuthenticationPrincipal Account user) {
-    List<LeaveApplication> rows =
-        user.getRole() == Role.ADMIN
-            ? applications.findAllByOrderByCreatedAtDesc()
-            : applications.findByRequester_EmailOrderByCreatedAtDesc(user.getEmail());
+    List<LeaveApplication> rows = applications.findAllByOrderByCreatedAtDesc();
+    if (user.getRole() == Role.TEACHER) {
+      rows = rows.stream()
+          .filter(application -> application.getStudent() != null
+              || application.getRequester().getId().equals(user.getId()))
+          .toList();
+    } else if (user.getRole() != Role.ADMIN) {
+      rows = applications.findByRequester_EmailOrderByCreatedAtDesc(user.getEmail());
+    }
     return rows.stream().map(LeaveApplicationView::from).toList();
   }
 
@@ -74,10 +79,18 @@ public class LeaveApplicationController {
   }
 
   @PatchMapping("/{id}/status")
-  @PreAuthorize("hasRole('ADMIN')")
   public LeaveApplicationView updateStatus(
-      @PathVariable Long id, @Valid @RequestBody LeaveStatusRequest request) {
+      @PathVariable Long id,
+      @Valid @RequestBody LeaveStatusRequest request,
+      @AuthenticationPrincipal Account user) {
     LeaveApplication application = findApplication(id);
+    boolean isAdmin = user.getRole() == Role.ADMIN;
+    boolean isTeacherReviewingStudentLeave =
+        user.getRole() == Role.TEACHER && application.getStudent() != null;
+    if (!isAdmin && !isTeacherReviewingStudentLeave) {
+      throw new ResponseStatusException(
+          HttpStatus.FORBIDDEN, "Only admins can review staff leave; teachers may review student leave");
+    }
     application.setStatus(request.status());
     notifications.save(
         new Notification(

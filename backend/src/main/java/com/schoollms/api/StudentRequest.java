@@ -9,9 +9,7 @@ public record StudentRequest(
     @NotBlank String className,
     @NotBlank String division,
     @Positive int rollNumber,
-    String parentEmail,
+    @NotBlank @Email String parentEmail,
     String phone,
     String address,
-    String status,
-    @Email String studentLoginEmail,
-    @Size(min = 8) String studentInitialPassword) {}
+    String status) {}

@@ -26,8 +26,7 @@ class DemoAccountInitializerTest {
       List.<String[]>of(
           new String[] {"admin@northstar.local", "Admin@123", "System Administrator", "ADMIN"},
           new String[] {"teacher@northstar.local", "Teacher@123", "Demo Teacher", "TEACHER"},
-          new String[] {"parent@northstar.local", "Parent@123", "Demo Parent", "PARENT"},
-          new String[] {"student@northstar.local", "Student@123", "Demo Student", "STUDENT"});
+          new String[] {"parent@northstar.local", "Parent@123", "Demo Parent", "PARENT"});
 
   private AccountRepository accounts;
   private StudentRepository students;
@@ -98,7 +97,7 @@ class DemoAccountInitializerTest {
     initializer.run(new DefaultApplicationArguments(new String[0]));
 
     ArgumentCaptor<Account> savedAccounts = ArgumentCaptor.forClass(Account.class);
-    verify(accounts, times(4)).save(savedAccounts.capture());
+    verify(accounts, times(3)).save(savedAccounts.capture());
     for (int i = 0; i < DEMO_LOGINS.size(); i++) {
       Account account = savedAccounts.getAllValues().get(i);
       String[] login = DEMO_LOGINS.get(i);
@@ -127,7 +126,7 @@ class DemoAccountInitializerTest {
 
     assertEquals("DEMO-STU-001", seededStudent.getValue().getStudentCode());
     assertEquals("parent@northstar.local", seededStudent.getValue().getParent().getEmail());
-    assertEquals("student@northstar.local", seededStudent.getValue().getStudentAccount().getEmail());
+    assertNull(seededStudent.getValue().getStudentAccount());
   }
 
   @Test
@@ -137,7 +136,7 @@ class DemoAccountInitializerTest {
     ArgumentCaptor<Account> savedAccounts = ArgumentCaptor.forClass(Account.class);
     ArgumentCaptor<Student> savedStudents = ArgumentCaptor.forClass(Student.class);
     ArgumentCaptor<Attendance> savedAttendance = ArgumentCaptor.forClass(Attendance.class);
-    verify(accounts, times(4)).save(savedAccounts.capture());
+    verify(accounts, times(3)).save(savedAccounts.capture());
     verify(students).save(savedStudents.capture());
     verify(attendance).save(savedAttendance.capture());
 

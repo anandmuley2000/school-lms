@@ -47,8 +47,7 @@ class AuthLoginFlowTest {
   private static final DemoLogin[] DEMO_LOGINS = {
     new DemoLogin("admin@northstar.local", "Admin@123", Role.ADMIN),
     new DemoLogin("teacher@northstar.local", "Teacher@123", Role.TEACHER),
-    new DemoLogin("parent@northstar.local", "Parent@123", Role.PARENT),
-    new DemoLogin("student@northstar.local", "Student@123", Role.STUDENT)
+    new DemoLogin("parent@northstar.local", "Parent@123", Role.PARENT)
   };
 
   @Autowired private MockMvc mvc;

@@ -53,15 +53,6 @@ public class DemoData {
               Role.PARENT,
               "Rajesh Sharma",
               "9876543210");
-      Account aaravStudent =
-          account(
-              accounts,
-              encoder,
-              "student@schooldemo.com",
-              "Student@123",
-              Role.STUDENT,
-              "Aarav Sharma",
-              "9876543210");
       if (!teacherClasses.existsByTeacher_EmailAndClassNameAndDivision(
           teacher.getEmail(), "6", "A")) teacherClasses.save(new TeacherClass(teacher, "6", "A"));
       if (!teacherClasses.existsByTeacher_EmailAndClassNameAndDivision(
@@ -100,7 +91,6 @@ public class DemoData {
                               new Account(
                                   email, encoder.encode("Parent@123"), Role.PARENT, d[6], d[7])));
           Student s = new Student(d[0], d[1], d[2], d[3], d[4], Integer.parseInt(d[5]), parent);
-          if (d[0].equals("STU001")) s.setStudentAccount(aaravStudent);
           students.save(s);
         }
       }

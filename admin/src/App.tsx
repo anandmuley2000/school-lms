@@ -45,11 +45,27 @@ const nav: Page[] = [
   "Leave",
   "Bus Tracking",
 ];
+const pageIconPaths: Record<Page, string> = {
+  Overview: "M3 10.5 12 3l9 7.5V21h-6v-7H9v7H3z",
+  Students: "M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M10 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8m7-7a4 4 0 0 1 0 8m3 4a4 4 0 0 1 2 3v2",
+  Attendance: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20m-4-10 3 3 6-6",
+  Homework: "M5 3h14v18l-7-4-7 4zM9 8h6m-6 4h6",
+  Results: "M4 20V5m0 15h17M8 16v-4m5 4V8m5 8v-7",
+  Fees: "M12 2v20m5-16H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
+  Messages: "M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z",
+  Notifications: "M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9m-8 13h4",
+  People: "M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2m6-10a4 4 0 1 0 0-8 4 4 0 0 0 0 8m7-7a4 4 0 1 1 0 8m2 3a4 4 0 0 1 3 4v2",
+  Events: "M4 5h16v16H4zM8 3v4m8-4v4M4 10h16",
+  Leave: "M4 4h16v16H4zM4 7l8 6 8-6",
+  "Bus Tracking": "M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10M4 11h16M7 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4m10 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4M4 16h16",
+};
+function PageIcon({ page }: { page: Page }) {
+  return <svg viewBox="0 0 24 24" aria-hidden="true" className="app-icon"><path d={pageIconPaths[page]} /></svg>;
+}
 const demos = [
   ["ADMIN", "admin@northstar.local", "Admin@123"],
   ["TEACHER", "teacher@northstar.local", "Teacher@123"],
   ["PARENT", "parent@northstar.local", "Parent@123"],
-  ["STUDENT", "student@northstar.local", "Student@123"],
 ];
 export default function App() {
   const [user, setUser] = useState<User | null>(null),
@@ -122,12 +138,20 @@ export default function App() {
     if (localStorage.getItem("school_lms_token"))
       api<User>("/auth/me")
         .then(setUser)
-        .catch(() => clearToken());
+        .catch(() => {
+          clearToken();
+          setError("Please sign in with a parent, teacher, or administrator account.");
+        });
     return () => setUnauthorizedHandler(undefined);
   }, [clearSessionState]);
   useEffect(() => {
     reload();
   }, [reload]);
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(""), 3400);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
   useEffect(() => {
     if (!user || page !== "Bus Tracking") return;
     let active = true;
@@ -173,7 +197,7 @@ export default function App() {
       .toLowerCase()
       .includes(query.toLowerCase()),
   );
-  const visibleStudents = user.role === "PARENT" ? students : students;
+  const visibleStudents = students;
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -185,16 +209,14 @@ export default function App() {
         </div>
         <div className="school-label">SCHOOL WORKSPACE</div>
         <nav>
-          {nav.map((item, i) => (
+          {nav.map((item) => (
             <button
               key={item}
               className={`nav-item ${page === item ? "active" : ""}`}
               onClick={() => setPage(item)}
             >
-              <span className="nav-icon">
-                {["◫", "▤", "✓", "▧", "⌁", "₹", "✉", "◉", "♙", "◷", "▣", "🚌"][i]}
-              </span>
-              {item}
+              <span className="nav-icon"><PageIcon page={item} /></span>
+              {user.role === "PARENT" && item === "Students" ? "My children" : item}
               {item === "Notifications" &&
                 notes.filter((n) => !n.read).length > 0 && (
                   <span className="badge">
@@ -229,7 +251,7 @@ export default function App() {
               onClick={() => setPage("Notifications")}
               aria-label="Notifications"
             >
-              ♧{notes.some((n) => !n.read) && <i />}
+              <svg viewBox="0 0 24 24" aria-hidden="true" className="app-icon"><path d={pageIconPaths.Notifications} /></svg>{notes.some((n) => !n.read) && <i />}
             </button>
             <div className="avatar small">{user.name.slice(0, 1)}</div>
             <button className="topbar-logout" onClick={signOut}>
@@ -243,12 +265,12 @@ export default function App() {
               <div className="eyebrow">
                 {page === "Overview"
                   ? "THURSDAY, 1 OCTOBER 2026"
-                  : `${user.role} PORTAL`}
+                  : user.role === "PARENT" ? "FAMILY PORTAL" : `${user.role} PORTAL`}
               </div>
               <h1>
                 {page === "Overview"
                   ? `Good morning, ${user.name.split(" ")[0]}`
-                  : page}
+                  : page === "Students" && user.role === "PARENT" ? "My children" : page}
               </h1>
               <p>
                 {page === "Overview"
@@ -443,9 +465,9 @@ export default function App() {
             <MessagesPage
               user={user}
               messages={messages}
-              onSaved={async () => {
+              onSaved={async (message) => {
                 await reload();
-                setToast("Message sent.");
+                setToast(message);
               }}
             />
           )}
@@ -511,7 +533,8 @@ export default function App() {
                         await api(`/notifications/${n.id}/read`, {
                           method: "PATCH",
                         });
-                        reload();
+                        await reload();
+                        setToast("Notification marked as read.");
                       }}
                     >
                       Mark read
@@ -545,8 +568,10 @@ export default function App() {
         </section>
       </main>
       {toast && (
-        <div className="toast" onClick={() => setToast("")}>
-          ✓ {toast}
+        <div className="toast" role="status" onClick={() => setToast("")}>
+          <span className="toast-check" aria-hidden="true">OK</span>
+          <span>{toast}</span>
+          <button type="button" aria-label="Dismiss message" onClick={() => setToast("")}>x</button>
         </div>
       )}
       {edit && (
@@ -625,6 +650,7 @@ function EventsPage({
       {isAdmin && (
         <form className="panel form-panel" onSubmit={save}>
           <h2>{draft.id ? "Edit school event" : "Add school event"}</h2>
+          <p className="muted">Sundays appear as weekly holidays. Festival names such as Diwali, Eid, Christmas, Holi, and Ganesh Chaturthi are automatically marked as holidays; you can also include “Holiday” in the title.</p>
           {error && <div className="form-error">{error}</div>}
           <div className="form-grid">
             <label>
@@ -727,7 +753,7 @@ function LeavePage({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const isAdmin = user.role === "ADMIN";
-  const canRequest = ["ADMIN", "TEACHER", "PARENT", "STUDENT"].includes(user.role);
+  const canRequest = ["ADMIN", "TEACHER", "PARENT"].includes(user.role);
 
   async function save(event: React.FormEvent) {
     event.preventDefault();
@@ -784,9 +810,9 @@ function LeavePage({
           {error && <div className="form-error">{error}</div>}
           {user.role !== "TEACHER" && (
             <label>
-              Student {user.role === "PARENT" || user.role === "STUDENT" ? "(required)" : "(optional)"}
+              Student {user.role === "PARENT" ? "(required)" : "(optional)"}
               <select
-                required={user.role === "PARENT" || user.role === "STUDENT"}
+                required={user.role === "PARENT"}
                 value={draft.studentId}
                 onChange={(event) => setDraft({ ...draft, studentId: event.target.value })}
               >
@@ -850,18 +876,19 @@ function LeavePage({
         {items.map((item) => {
           const isOwner = item.requesterEmail === user.email;
           const pending = item.status === "PENDING";
+          const canReview = isAdmin || (user.role === "TEACHER" && item.studentId !== null);
           return (
             <article className="record-card" key={item.id}>
               <div>
                 <span className={`status ${item.status.toLowerCase()}`}>{item.status}</span>
-                <h3>{item.studentName || item.requesterName}</h3>
+                <h3>{item.studentId === null ? `Staff leave · ${item.requesterName}` : `Student leave · ${item.studentName}`}</h3>
                 <p>{item.reason}</p>
                 <small>
                   {item.startDate} – {item.endDate} · Requested by {item.requesterName}
                 </small>
               </div>
               <div className="record-actions">
-                {isAdmin && pending && (
+                {canReview && pending && (
                   <>
                     <button className="primary" onClick={() => updateStatus(item, "APPROVED")}>
                       Approve
@@ -1813,10 +1840,10 @@ function MessagesPage({
 }: {
   user: User;
   messages: Message[];
-  onSaved: () => void;
+  onSaved: (message: string) => void;
 }) {
   const [recipientEmail, setRecipientEmail] = useState(
-      user.role === "PARENT" || user.role === "STUDENT"
+      user.role === "PARENT"
         ? "teacher@schooldemo.com"
         : "parent@schooldemo.com",
     ),
@@ -1833,7 +1860,7 @@ function MessagesPage({
       });
       setSubject("");
       setBody("");
-      onSaved();
+      onSaved("Message sent.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to send message");
     }
@@ -1841,7 +1868,7 @@ function MessagesPage({
   async function read(m: Message) {
     if (!m.read && m.recipientEmail === user.email) {
       await api(`/messages/${m.id}/read`, { method: "PATCH" });
-      onSaved();
+      onSaved("Message marked as read.");
     }
   }
   return (
@@ -1988,7 +2015,6 @@ function PeoplePage({
           <select value={role} onChange={(e) => setRole(e.target.value)}>
             <option>PARENT</option>
             <option>TEACHER</option>
-            <option>STUDENT</option>
           </select>
         </label>
         <label>
@@ -2016,7 +2042,7 @@ function PeoplePage({
           )}
         </div>
         {accounts
-          .filter((a) => a.role !== "ADMIN")
+          .filter((a) => a.role !== "ADMIN" && a.role !== "STUDENT")
           .map((a) => (
             <article className="assignment" key={a.id}>
               <span className="assignment-icon">
@@ -2051,8 +2077,6 @@ function StudentEditor({
   onSaved: () => void;
 }) {
   const [form, setForm] = useState({ ...student }),
-    [studentLoginEmail, setStudentLoginEmail] = useState(""),
-    [studentInitialPassword, setStudentInitialPassword] = useState(""),
     [error, setError] = useState(""),
     [saving, setSaving] = useState(false);
   function change(k: keyof Student, v: string | number) {
@@ -2074,7 +2098,6 @@ function StudentEditor({
         phone: form.phone,
         address: form.address,
         status: form.status,
-        ...(!student.id ? { studentLoginEmail, studentInitialPassword } : {}),
       };
       await api(student.id ? `/students/${student.id}` : "/students", {
         method: student.id ? "PUT" : "POST",
@@ -2177,39 +2200,12 @@ function StudentEditor({
             <input
               type="email"
               value={form.parentEmail || ""}
+              required
               onChange={(e) => change("parentEmail", e.target.value)}
               placeholder="parent@schooldemo.com"
             />
           </label>
-          {!student.id && (
-            <>
-              <label>
-                Student login email
-                <input
-                  type="email"
-                  value={studentLoginEmail}
-                  onChange={(e) => setStudentLoginEmail(e.target.value)}
-                  autoComplete="email"
-                  required
-                />
-              </label>
-              <label>
-                Initial password
-                <input
-                  type="password"
-                  value={studentInitialPassword}
-                  onChange={(e) => setStudentInitialPassword(e.target.value)}
-                  autoComplete="new-password"
-                  minLength={8}
-                  required
-                />
-              </label>
-              <p className="wide">
-                Give the student this email and initial password to sign in. They will see the
-                Student dashboard.
-              </p>
-            </>
-          )}
+          <p className="wide family-link-note">Students use the linked parent account to access attendance, homework, results, fees, and school updates.</p>
           <label>
             Phone
             <input

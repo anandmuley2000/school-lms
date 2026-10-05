@@ -40,6 +40,9 @@ public class AccountController {
   @PostMapping
   @ResponseStatus(HttpStatus.CREATED)
   public AccountView create(@Valid @RequestBody AccountRequest r) {
+    if (r.role() == Role.STUDENT)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Create a parent account and link students to that family");
     if (r.password() == null || r.password().length() < 8)
       throw new ResponseStatusException(
           HttpStatus.BAD_REQUEST, "Password must contain at least 8 characters");
@@ -57,6 +60,9 @@ public class AccountController {
 
   @PutMapping("/{id}")
   public AccountView update(@PathVariable Long id, @Valid @RequestBody AccountRequest r) {
+    if (r.role() == Role.STUDENT)
+      throw new ResponseStatusException(
+          HttpStatus.BAD_REQUEST, "Student portal accounts are no longer supported");
     Account a =
         accounts
             .findById(id)

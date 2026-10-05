@@ -1,5 +1,7 @@
 package com.schoollms.security;
 
+import com.schoollms.domain.Account;
+import com.schoollms.domain.Role;
 import jakarta.servlet.*;
 import jakarta.servlet.http.*;
 import java.io.IOException;
@@ -33,6 +35,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String email = jwt.subject(header.substring(7));
         UserDetails user = users.loadUserByUsername(email);
         if (jwt.valid(header.substring(7), user)) {
+          if (user instanceof Account account && account.getRole() == Role.STUDENT) {
+            response.sendError(403, "Student access is managed from the linked parent account");
+            return;
+          }
           var auth = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
           auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
           SecurityContextHolder.getContext().setAuthentication(auth);

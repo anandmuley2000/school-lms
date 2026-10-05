@@ -6,14 +6,19 @@
     "frontend": "npm --prefix admin run dev",
     "backend": "mvnw.cmd -f backend/pom.xml spring-boot:run",
     "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "mobile": "npm --prefix mobile run start",
     "cap:sync": "cap sync android"
   },
   "devDependencies": {
-    "concurrently": "^9.0.0"
+    "@types/react": "~19.2.4",
+    "concurrently": "^9.0.0",
+    "typescript": "~6.0.3"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",
     "@capacitor/cli": "^8.5.2",
-    "@capacitor/core": "^8.5.2"
+    "@capacitor/core": "^8.5.2",
+    "expo": "^57.0.26",
+    "react-dom": "19.2.3"
   }
 }

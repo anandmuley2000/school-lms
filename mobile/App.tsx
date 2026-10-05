@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -14,7 +15,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import {
   api,
   AttendanceRecord,
@@ -50,13 +51,90 @@ type Tab =
 const IS_DEVELOPMENT_BUILD =
   process.env.EXPO_PUBLIC_APP_ENV === "development" ||
   Constants.expoConfig?.extra?.environment === "development";
+const dateKey = (year: number, month: number, day: number) =>
+  `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+const formatCalendarDate = (date: string) =>
+  new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
+// Common India/Maharashtra festival and public holiday dates for 2026–2027.
+// Dates can vary by region and local observance; schools can add their own dates in Events.
+const FESTIVAL_DATES: { date: string; title: string }[] = ([
+  ["2026-01-14", "Makar Sankranti / Pongal"],
+  ["2026-01-26", "Republic Day"],
+  ["2026-02-15", "Maha Shivaratri"],
+  ["2026-02-19", "Chhatrapati Shivaji Maharaj Jayanti"],
+  ["2026-03-03", "Holi"],
+  ["2026-03-19", "Gudi Padwa"],
+  ["2026-03-21", "Eid al-Fitr (date may vary)"],
+  ["2026-03-26", "Ram Navami"],
+  ["2026-03-31", "Mahavir Jayanti"],
+  ["2026-04-03", "Good Friday"],
+  ["2026-04-14", "Dr. Babasaheb Ambedkar Jayanti"],
+  ["2026-05-01", "Maharashtra Day / Buddha Purnima"],
+  ["2026-05-27", "Eid al-Adha (date may vary)"],
+  ["2026-06-26", "Muharram (date may vary)"],
+  ["2026-08-15", "Independence Day / Parsi New Year"],
+  ["2026-08-26", "Eid-e-Milad (date may vary)"],
+  ["2026-08-04", "Janmashtami"],
+  ["2026-09-05", "Gopal Kala / Dahi Handi"],
+  ["2026-09-14", "Ganesh Chaturthi"],
+  ["2026-09-25", "Anant Chaturdashi"],
+  ["2026-10-02", "Mahatma Gandhi Jayanti"],
+  ["2026-10-20", "Dussehra / Vijayadashami"],
+  ["2026-11-08", "Diwali / Lakshmi Pujan"],
+  ["2026-11-09", "Deepavali Holiday"],
+  ["2026-11-10", "Diwali Padwa"],
+  ["2026-11-11", "Bhai Dooj / Bhaubeej"],
+  ["2026-11-24", "Guru Nanak Jayanti"],
+  ["2026-12-25", "Christmas Day"],
+  ["2027-01-26", "Republic Day"],
+  ["2027-02-19", "Chhatrapati Shivaji Maharaj Jayanti"],
+  ["2027-03-06", "Maha Shivaratri"],
+  ["2027-03-10", "Eid al-Fitr (date may vary)"],
+  ["2027-03-22", "Holi"],
+  ["2027-03-26", "Good Friday"],
+  ["2027-04-08", "Gudi Padwa"],
+  ["2027-04-14", "Dr. Babasaheb Ambedkar Jayanti"],
+  ["2027-04-15", "Ram Navami"],
+  ["2027-04-19", "Mahavir Jayanti"],
+  ["2027-05-01", "Maharashtra Day"],
+  ["2027-05-17", "Eid al-Adha (date may vary)"],
+  ["2027-05-20", "Buddha Purnima"],
+  ["2027-06-15", "Muharram (date may vary)"],
+  ["2027-08-15", "Independence Day / Parsi New Year / Eid-e-Milad (dates may vary)"],
+  ["2027-09-04", "Ganesh Chaturthi"],
+  ["2027-10-02", "Mahatma Gandhi Jayanti"],
+  ["2027-10-10", "Dussehra / Vijayadashami"],
+  ["2027-10-29", "Diwali"],
+  ["2027-10-30", "Deepavali Holiday"],
+  ["2027-11-14", "Guru Nanak Jayanti"],
+  ["2027-12-25", "Christmas Day"],
+] as [string, string][]).map(([date, title]) => ({ date, title }));
+const festivalEventsForYear = (year: number): SchoolEvent[] =>
+  FESTIVAL_DATES.filter((festival) => festival.date.startsWith(`${year}-`)).map((festival, index) => ({
+    id: -1000 - index,
+    title: festival.title,
+    description: "Festival and public holiday calendar entry. Confirm the school's local holiday schedule with the administration.",
+    eventDate: festival.date,
+    location: "School calendar",
+    createdBy: "School calendar",
+    holiday: true,
+  }));
 const demos = [
   { role: "ADMIN", email: "admin@schooldemo.com", password: "Admin@123" },
   { role: "TEACHER", email: "teacher@schooldemo.com", password: "Teacher@123" },
   { role: "PARENT", email: "parent@schooldemo.com", password: "Parent@123" },
-  { role: "STUDENT", email: "student@schooldemo.com", password: "Student@123" },
 ];
 export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppContent />
+    </SafeAreaProvider>
+  );
+}
+
+function AppContent() {
   const [user, setUser] = useState<User | null>(null),
     [tab, setTab] = useState<Tab>("Home"),
     [email, setEmail] = useState(IS_DEVELOPMENT_BUILD ? "admin@schooldemo.com" : ""),
@@ -71,6 +149,10 @@ export default function App() {
     [fees, setFees] = useState<Fee[]>([]),
     [messages, setMessages] = useState<Message[]>([]),
     [events, setEvents] = useState<SchoolEvent[]>([]),
+    [calendarYear, setCalendarYear] = useState(new Date().getFullYear()),
+    [selectedCalendarDate, setSelectedCalendarDate] = useState(
+      dateKey(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()),
+    ),
     [leaveApplications, setLeaveApplications] = useState<LeaveApplication[]>([]),
     [leaveStudentId, setLeaveStudentId] = useState(""),
     [leaveStart, setLeaveStart] = useState(""),
@@ -82,11 +164,27 @@ export default function App() {
     [recipient, setRecipient] = useState("teacher@schooldemo.com"),
     [subjectLine, setSubjectLine] = useState(""),
     [messageBody, setMessageBody] = useState(""),
+    [messageComposerOpen, setMessageComposerOpen] = useState(false),
+    [messageSending, setMessageSending] = useState(false),
     [error, setError] = useState(""),
+    [toast, setToast] = useState<{ id: number; message: string; error: boolean } | null>(null),
     [busy, setBusy] = useState(false),
     [refreshing, setRefreshing] = useState(false),
     [markId, setMarkId] = useState(""),
-    [status, setStatus] = useState("ABSENT");
+    [status, setStatus] = useState("ABSENT"),
+    [attendanceSaving, setAttendanceSaving] = useState(false),
+    [attendanceMessage, setAttendanceMessage] = useState(""),
+    [assistantOpen, setAssistantOpen] = useState(false),
+    [assistantInput, setAssistantInput] = useState(""),
+    [assistantMessages, setAssistantMessages] = useState<
+      { id: number; from: "assistant" | "user"; text: string }[]
+    >([
+      {
+        id: 1,
+        from: "assistant",
+        text: "Hi! I can help you find a section or answer simple questions about your school data.",
+      },
+    ]);
   const load = useCallback(async () => {
     if (!user) return;
     setError("");
@@ -109,7 +207,7 @@ export default function App() {
       setMessages(m);
       setEvents(ev);
       setLeaveApplications(lv);
-      if (user.role === "PARENT" || user.role === "STUDENT") {
+      if (user.role === "PARENT") {
         const histories = await Promise.all(
           s.map((student) =>
             api<AttendanceRecord[]>(`/attendance/student/${student.id}`).then(
@@ -173,14 +271,29 @@ export default function App() {
     load();
   }, [load]);
   useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 3200);
+    return () => clearTimeout(timer);
+  }, [toast]);
+  useEffect(() => {
     if (!user) return;
     void loadBusRoutes();
   }, [user, loadBusRoutes]);
+  useEffect(() => {
+    if (!user || (user.role !== "PARENT" && user.role !== "TEACHER")) return;
+    const timer = setInterval(() => {
+      void api<Note[]>("/notifications").then(setNotes).catch(() => undefined);
+    }, 60_000);
+    return () => clearInterval(timer);
+  }, [user]);
   useEffect(() => {
     if (!user || tab !== "Bus Tracking") return;
     const timer = setInterval(() => void loadBusRoutes(), 15_000);
     return () => clearInterval(timer);
   }, [user, tab, loadBusRoutes]);
+  function notify(message: string, isError = false) {
+    setToast({ id: Date.now(), message, error: isError });
+  }
   async function login(e = email, p = password) {
     setBusy(true);
     setError("");
@@ -192,6 +305,7 @@ export default function App() {
       await setToken(r.token);
       setUser(r.user);
       setTab("Home");
+      notify(`Welcome, ${r.user.name.split(" ")[0]}.`);
     } catch (ex) {
       setError(ex instanceof Error ? ex.message : "Sign in failed");
     } finally {
@@ -203,7 +317,22 @@ export default function App() {
     await Promise.all([load(), loadBusRoutes()]);
     setRefreshing(false);
   }
+  function changeCalendarYear(amount: number) {
+    const nextYear = calendarYear + amount;
+    const [, monthText, dayText] = selectedCalendarDate.split("-");
+    const month = Number(monthText) - 1;
+    const day = Number(dayText);
+    setCalendarYear(nextYear);
+    setSelectedCalendarDate(dateKey(nextYear, month, Math.min(day, new Date(nextYear, month + 1, 0).getDate())));
+  }
+  const calendarEvents = [...events, ...festivalEventsForYear(calendarYear)];
   async function mark() {
+    if (!markId) {
+      setAttendanceMessage("Select a student before saving attendance.");
+      return;
+    }
+    setAttendanceSaving(true);
+    setAttendanceMessage("");
     try {
       await api("/attendance", {
         method: "POST",
@@ -213,43 +342,130 @@ export default function App() {
           status,
         }),
       });
-      setError("Attendance saved. Parent notification sent.");
+      setAttendanceMessage("Attendance saved successfully.");
+      notify("Attendance saved.");
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not record attendance");
+      const message = e instanceof Error ? e.message : "Could not record attendance";
+      setAttendanceMessage(message);
+      notify(message, true);
+    } finally {
+      setAttendanceSaving(false);
     }
   }
+  function navigateFromAssistant(destination: Tab) {
+    const availableTabs =
+      user?.role === "TEACHER"
+        ? (["Home", "Attendance", "Homework", "Events", "Leave", "Bus Tracking", "Updates", "Profile"] as Tab[])
+        : user?.role === "ADMIN"
+          ? (["Home", "Students", "Attendance", "Events", "Leave", "Bus Tracking", "Updates", "Profile"] as Tab[])
+          : (["Home", "Students", "Homework", "Events", "Leave", "Bus Tracking", "Updates", "Profile"] as Tab[]);
+    if (!availableTabs.includes(destination)) {
+      return `The ${destination} section is not available for your account.`;
+    }
+    setTab(destination);
+    setAssistantOpen(false);
+    return `Opening ${destination}.`;
+  }
+  function answerAssistant(rawQuestion: string) {
+    const question = rawQuestion.toLowerCase().replace(/[^a-z0-9 ]/g, " ").trim();
+    const navigation: [RegExp, Tab][] = [
+      [/\b(home|dashboard)\b/, "Home"],
+      [/\b(attendance|absent|present)\b/, "Attendance"],
+      [/\b(student|students|children|directory)\b/, "Students"],
+      [/\b(homework|assignment|assignments)\b/, "Homework"],
+      [/\b(event|events|calendar)\b/, "Events"],
+      [/\b(leave|vacation)\b/, "Leave"],
+      [/\b(bus|track|tracking|route)\b/, "Bus Tracking"],
+      [/\b(notification|notifications|update|updates)\b/, "Updates"],
+      [/\b(profile|account)\b/, "Profile"],
+      [/\b(result|results|grade|grades|exam|exams)\b/, "Results"],
+      [/\b(fee|fees|payment|payments)\b/, "Fees"],
+      [/\b(message|messages|inbox)\b/, "Messages"],
+    ];
+    for (const [pattern, destination] of navigation) {
+      if (pattern.test(question) && /\b(open|show|go|take|navigate|where|view)\b/.test(question)) {
+        return navigateFromAssistant(destination);
+      }
+    }
+    if (/\b(attendance|absent|present)\b/.test(question)) {
+      return user?.role === "ADMIN" || user?.role === "TEACHER"
+        ? "Open Attendance to choose a student, select Present, Absent, Late, or Leave, then tap Save attendance."
+        : "Open Attendance to see attendance history for your linked student(s).";
+    }
+    if (/\b(leave|vacation)\b/.test(question)) {
+      return user?.role === "ADMIN"
+        ? "Open Leave to review requests and approve or reject pending requests."
+        : "Open Leave to submit a request or check its status.";
+    }
+    if (/\b(bus|route|tracking)\b/.test(question)) {
+      return `Open Bus Tracking to view routes. There ${busRoutes.length === 1 ? "is" : "are"} ${busRoutes.length} route${busRoutes.length === 1 ? "" : "s"} available right now.`;
+    }
+    if (/\b(homework|assignment)\b/.test(question)) {
+      return `There ${homework.length === 1 ? "is" : "are"} ${homework.length} assignment${homework.length === 1 ? "" : "s"} in the loaded list. Open Homework to view them.`;
+    }
+    if (/\b(student|students|children)\b/.test(question)) {
+      return `I can see ${students.length} student${students.length === 1 ? "" : "s"} in your account. Open Students to view the list.`;
+    }
+    if (/\b(help|what can you do|how do i)\b/.test(question)) {
+      return "Ask me to open a section (for example, ?open attendance?) or ask how to use attendance, leave, homework, or bus tracking.";
+    }
+    return "I can help you navigate the app and answer basic questions about loaded students, homework, leave, attendance, and bus routes. Try ?open bus tracking? or ?how do I request leave??";
+  }
+  function sendAssistantMessage(text = assistantInput) {
+    const question = text.trim();
+    if (!question) return;
+    const now = Date.now();
+    const answer = answerAssistant(question);
+    setAssistantMessages((current) => [
+      ...current,
+      { id: now, from: "user", text: question },
+      { id: now + 1, from: "assistant", text: answer },
+    ]);
+    setAssistantInput("");
+  }
   async function sendMessage() {
+    if (!recipient.trim() || !subjectLine.trim() || !messageBody.trim()) {
+      notify("Enter a recipient, subject, and message.", true);
+      return;
+    }
+    setMessageSending(true);
     try {
       await api("/messages", {
         method: "POST",
         body: JSON.stringify({
-          recipientEmail: recipient,
-          subject: subjectLine,
-          body: messageBody,
+          recipientEmail: recipient.trim(),
+          subject: subjectLine.trim(),
+          body: messageBody.trim(),
         }),
       });
       setSubjectLine("");
       setMessageBody("");
-      setError("Message sent.");
+      setError("");
+      setMessageComposerOpen(false);
+      notify("Message sent.");
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not send message");
+      const message = e instanceof Error ? e.message : "Could not send message";
+      setError(message);
+      notify(message, true);
+    } finally {
+      setMessageSending(false);
     }
   }
   async function submitLeave() {
     try {
       await api("/leave-requests", { method: "POST", body: JSON.stringify({ studentId: leaveStudentId ? Number(leaveStudentId) : null, startDate: leaveStart, endDate: leaveEnd, reason: leaveReason }) });
-      setLeaveStart(""); setLeaveEnd(""); setLeaveReason(""); setError("Leave request submitted."); await load();
-    } catch (e) { setError(e instanceof Error ? e.message : "Could not submit leave request"); }
+      setLeaveStart(""); setLeaveEnd(""); setLeaveReason(""); setError(""); notify("Leave request submitted."); await load();
+    } catch (e) { const message = e instanceof Error ? e.message : "Could not submit leave request"; setError(message); notify(message, true); }
   }
   async function updateLeave(id: number, status: "APPROVED" | "REJECTED") {
-    try { await api(`/leave-requests/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }); setError(`Leave request ${status.toLowerCase()}.`); await load(); }
-    catch (e) { setError(e instanceof Error ? e.message : "Could not update leave request"); }
+    try { await api(`/leave-requests/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }); setError(""); notify(`Leave request ${status.toLowerCase()}.`); await load(); }
+    catch (e) { const message = e instanceof Error ? e.message : "Could not update leave request"; setError(message); notify(message, true); }
   }
   async function deleteLeave(id: number) {
-    try { await api(`/leave-requests/${id}`, { method: "DELETE" }); setError("Leave request deleted."); await load(); }
-    catch (e) { setError(e instanceof Error ? e.message : "Could not delete leave request"); }
+    try { await api(`/leave-requests/${id}`, { method: "DELETE" }); setError(""); notify("Leave request deleted."); await load(); }
+    catch (e) { const message = e instanceof Error ? e.message : "Could not delete leave request"; setError(message); notify(message, true); }
   }
   if (!user)
     return (
@@ -317,7 +533,7 @@ export default function App() {
       ? ["Home", "Attendance", "Homework", "Events", "Leave", "Bus Tracking", "Updates", "Profile"]
       : user.role === "ADMIN"
         ? ["Home", "Students", "Attendance", "Events", "Leave", "Bus Tracking", "Updates", "Profile"]
-        : ["Home", "Students", "Homework", "Events", "Leave", "Bus Tracking", "Updates", "Profile"];
+        : ["Home", "Students", "Attendance", "Homework", "Results", "Fees", "Messages", "Events", "Leave", "Bus Tracking", "Updates", "Profile"];
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" />
@@ -331,6 +547,7 @@ export default function App() {
         </Pressable>
       </View>
       <ScrollView
+        style={styles.mainScroll}
         contentContainerStyle={styles.body}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={refresh} />
@@ -447,52 +664,88 @@ export default function App() {
           </Section>
         )}
         {tab === "Messages" && (
+          <Section title="Inbox & sent">
+            {messages.length === 0 && <Text style={styles.muted}>No messages yet.</Text>}
+            {messages.map((m) => (
+              <View key={m.id} style={styles.card}>
+                <Text style={styles.cardTitle}>{m.subject}</Text>
+                <Text style={styles.cardText}>{m.body}</Text>
+                <Text style={styles.role}>
+                  {m.senderEmail === user.email
+                    ? `To ${m.recipientName}`
+                    : `From ${m.senderName}`}
+                </Text>
+              </View>
+            ))}
+          </Section>
+        )}
+        {tab === "Events" && (
           <>
-            <Section title="Send a message">
-              <TextInput
-                style={styles.input}
-                autoCapitalize="none"
-                value={recipient}
-                onChangeText={setRecipient}
-                placeholder="Recipient email"
-              />
-              <TextInput
-                style={styles.input}
-                value={subjectLine}
-                onChangeText={setSubjectLine}
-                placeholder="Subject"
-              />
-              <TextInput
-                style={[styles.input, styles.messageInput]}
-                multiline
-                value={messageBody}
-                onChangeText={setMessageBody}
-                placeholder="Write a message"
-              />
-              <Pressable style={styles.button} onPress={sendMessage}>
-                <Text style={styles.buttonText}>Send message</Text>
-              </Pressable>
+            <Section title="Yearly school calendar">
+              <View style={styles.calendarYearRow}>
+                <Pressable style={styles.calendarYearButton} onPress={() => changeCalendarYear(-1)} accessibilityLabel="Previous year"><Text style={styles.calendarYearButtonText}>{"<"}</Text></Pressable>
+                <Text style={styles.calendarYear}>{calendarYear}</Text>
+                <Pressable style={styles.calendarYearButton} onPress={() => changeCalendarYear(1)} accessibilityLabel="Next year"><Text style={styles.calendarYearButtonText}>{">"}</Text></Pressable>
+              </View>
+              <Text style={styles.calendarHint}>{calendarYear === 2026 || calendarYear === 2027 ? "Sundays are weekly holidays. Festival dates are shown as HOLIDAY; confirm locally observed dates with the school." : "Sundays are weekly holidays. Ask the school to add festival dates for this year in Events."}</Text>
+              <View style={styles.calendarLegend}>
+                <View style={styles.calendarLegendItem}><View style={styles.holidayLegendDot} /><Text style={styles.calendarLegendText}>Sunday / holiday</Text></View>
+                <View style={styles.calendarLegendItem}><View style={styles.eventLegendDot} /><Text style={styles.calendarLegendText}>School event</Text></View>
+              </View>
+              <View style={styles.calendarGrid}>
+                {Array.from({ length: 12 }, (_, month) => {
+                  const firstWeekday = new Date(calendarYear, month, 1).getDay();
+                  const daysInMonth = new Date(calendarYear, month + 1, 0).getDate();
+                  const monthEvents = calendarEvents.filter((event) => event.eventDate.startsWith(`${calendarYear}-${String(month + 1).padStart(2, "0")}-`));
+                  const holidayDates = new Set(monthEvents.filter((event) => event.holiday).map((event) => event.eventDate));
+                  for (let day = 1; day <= daysInMonth; day++) {
+                    if (new Date(calendarYear, month, day).getDay() === 0) holidayDates.add(dateKey(calendarYear, month, day));
+                  }
+                  const holidayCount = holidayDates.size;
+                  return (
+                    <View key={month} style={styles.calendarMonth}>
+                      <Text style={styles.calendarMonthTitle}>{new Date(calendarYear, month, 1).toLocaleDateString(undefined, { month: "long" })}</Text>
+                      <View style={styles.calendarWeekdays}>
+                        {["S", "M", "T", "W", "T", "F", "S"].map((day, index) => <Text key={`${day}-${index}`} style={styles.calendarWeekday}>{day}</Text>)}
+                      </View>
+                      <View style={styles.calendarDays}>
+                        {Array.from({ length: firstWeekday }, (_, index) => <View key={`blank-${index}`} style={styles.calendarDay} />)}
+                        {Array.from({ length: daysInMonth }, (_, index) => {
+                          const day = index + 1;
+                          const key = dateKey(calendarYear, month, day);
+                          const dayEvents = monthEvents.filter((event) => event.eventDate === key);
+                          const sunday = new Date(calendarYear, month, day).getDay() === 0;
+                          const holiday = sunday || dayEvents.some((event) => event.holiday);
+                          return (
+                            <Pressable key={key} style={[styles.calendarDay, holiday && styles.calendarDayHoliday, key === selectedCalendarDate && styles.calendarDaySelected]} onPress={() => setSelectedCalendarDate(key)} accessibilityLabel={`${formatCalendarDate(key)}${sunday ? ", Sunday weekly holiday" : holiday ? ", holiday" : dayEvents.length ? ", school event" : ""}`}>
+                              <Text style={[styles.calendarDayText, holiday && styles.calendarHolidayText, key === selectedCalendarDate && styles.calendarSelectedText]}>{day}</Text>
+                              {(dayEvents.length > 0 || sunday) && <View style={[styles.calendarEventDot, holiday && styles.calendarHolidayDot]} />}
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                      <Text style={styles.calendarMonthSummary}>{holidayCount ? `${holidayCount} holiday${holidayCount === 1 ? "" : "s"}` : " "}</Text>
+                    </View>
+                  );
+                })}
+              </View>
             </Section>
-            <Section title="Inbox & sent">
-              {messages.map((m) => (
-                <View key={m.id} style={styles.card}>
-                  <Text style={styles.cardTitle}>{m.subject}</Text>
-                  <Text style={styles.cardText}>{m.body}</Text>
-                  <Text style={styles.role}>
-                    {m.senderEmail === user.email
-                      ? `To ${m.recipientName}`
-                      : `From ${m.senderName}`}
-                  </Text>
+            <Section title={formatCalendarDate(selectedCalendarDate)}>
+              {new Date(`${selectedCalendarDate}T00:00:00`).getDay() === 0 && <View style={[styles.card, styles.holidayEventCard]}><View style={styles.cardTop}><Text style={styles.cardTitle}>Weekly holiday</Text><Text style={styles.holidayBadge}>SUNDAY</Text></View><Text style={styles.cardText}>Every Sunday is marked as a weekly holiday.</Text></View>}
+              {calendarEvents.filter((event) => event.eventDate === selectedCalendarDate).length === 0 && new Date(`${selectedCalendarDate}T00:00:00`).getDay() !== 0 ? (
+                <Text style={styles.muted}>No school events are scheduled for this date.</Text>
+              ) : calendarEvents.filter((event) => event.eventDate === selectedCalendarDate).map((event) => (
+                <View key={event.id} style={[styles.card, event.holiday && styles.holidayEventCard]}>
+                  <View style={styles.cardTop}>
+                    <Text style={styles.cardTitle}>{event.title}</Text>
+                    {event.holiday && <Text style={styles.holidayBadge}>HOLIDAY</Text>}
+                  </View>
+                  {event.description ? <Text style={styles.cardText}>{event.description}</Text> : null}
+                  <Text style={styles.role}>{event.location || "School"}</Text>
                 </View>
               ))}
             </Section>
           </>
-        )}
-        {tab === "Events" && (
-          <Section title="School events">
-            {events.length === 0 && <Text style={styles.muted}>No events have been announced yet.</Text>}
-            {events.map((event) => <View key={event.id} style={styles.card}><Text style={styles.cardTitle}>{event.title}</Text><Text style={styles.cardText}>{event.description}</Text><Text style={styles.role}>{event.eventDate} · {event.location || "School"}</Text></View>)}
-          </Section>
         )}
         {tab === "Bus Tracking" && (
           <BusTracking
@@ -512,9 +765,19 @@ export default function App() {
               <TextInput style={[styles.input, styles.messageInput]} multiline value={leaveReason} onChangeText={setLeaveReason} placeholder="Reason for leave" />
               <Pressable style={styles.button} onPress={submitLeave}><Text style={styles.buttonText}>Submit request</Text></Pressable>
             </Section>}
-            <Section title={user.role === "ADMIN" ? "All leave requests" : "Your leave requests"}>
+            <Section title={user.role === "ADMIN" ? "All leave requests & history" : user.role === "TEACHER" ? "Student requests & my leave history" : "Your leave history"}>
               {leaveApplications.length === 0 && <Text style={styles.muted}>No leave requests to show.</Text>}
-              {leaveApplications.map((leave) => <View key={leave.id} style={styles.card}><Text style={styles.cardTitle}>{leave.studentName || leave.requesterName} · {leave.status}</Text><Text style={styles.cardText}>{leave.startDate} to {leave.endDate}</Text><Text style={styles.cardText}>{leave.reason}</Text>{user.role === "ADMIN" && leave.status === "PENDING" && <View style={styles.demoRow}><Pressable style={styles.demo} onPress={() => updateLeave(leave.id, "APPROVED")}><Text style={styles.demoText}>APPROVE</Text></Pressable><Pressable style={styles.demo} onPress={() => updateLeave(leave.id, "REJECTED")}><Text style={styles.demoText}>REJECT</Text></Pressable></View>}{(user.role === "ADMIN" || (leave.requesterEmail === user.email && leave.status === "PENDING")) && <Pressable style={styles.outlineButton} onPress={() => deleteLeave(leave.id)}><Text style={styles.outlineText}>Delete request</Text></Pressable>}</View>)}
+              {leaveApplications.map((leave) => {
+                const canReview = user.role === "ADMIN" || (user.role === "TEACHER" && leave.studentId !== null);
+                return <View key={leave.id} style={styles.card}>
+                  <Text style={styles.cardTitle}>{leave.studentId === null ? `Staff leave · ${leave.requesterName} · ${leave.status}` : `${leave.studentName} · ${leave.status}`}</Text>
+                  {leave.studentId !== null && <Text style={styles.cardText}>Requested by {leave.requesterName} ({leave.requesterEmail})</Text>}
+                  <Text style={styles.cardText}>{leave.startDate} to {leave.endDate}</Text>
+                  <Text style={styles.cardText}>{leave.reason}</Text>
+                  {canReview && leave.status === "PENDING" && <View style={styles.demoRow}><Pressable style={styles.demo} onPress={() => updateLeave(leave.id, "APPROVED")}><Text style={styles.demoText}>APPROVE</Text></Pressable><Pressable style={styles.demo} onPress={() => updateLeave(leave.id, "REJECTED")}><Text style={styles.demoText}>REJECT</Text></Pressable></View>}
+                  {(user.role === "ADMIN" || (leave.requesterEmail === user.email && leave.status === "PENDING")) && <Pressable style={styles.outlineButton} onPress={() => deleteLeave(leave.id)}><Text style={styles.outlineText}>Delete request</Text></Pressable>}
+                </View>;
+              })}
             </Section>
           </>
         )}
@@ -554,9 +817,27 @@ export default function App() {
                   </Pressable>
                 ))}
               </View>
-              <Pressable style={styles.button} onPress={mark}>
-                <Text style={styles.buttonText}>Save attendance</Text>
+              <Pressable
+                style={[styles.button, attendanceSaving && styles.buttonDisabled]}
+                onPress={mark}
+                disabled={attendanceSaving}
+              >
+                <Text style={styles.buttonText}>
+                  {attendanceSaving ? "Saving..." : "Save attendance"}
+                </Text>
               </Pressable>
+              {attendanceMessage ? (
+                <Text
+                  accessibilityLiveRegion="polite"
+                  style={
+                    attendanceMessage === "Attendance saved successfully."
+                      ? styles.attendanceSuccess
+                      : styles.error
+                  }
+                >
+                  {attendanceMessage}
+                </Text>
+              ) : null}
             </Section>
           ) : (
             <Section title="Attendance history">
@@ -589,6 +870,148 @@ export default function App() {
           </Section>
         )}
       </ScrollView>
+      {tab === "Messages" && (
+        <Pressable
+          style={styles.messageComposeButton}
+          onPress={() => { setError(""); setMessageComposerOpen(true); }}
+          accessibilityRole="button"
+          accessibilityLabel="Compose a message"
+        >
+          <Text style={styles.messageComposeIcon}>+</Text>
+          <Text style={styles.messageComposeLabel}>Compose</Text>
+        </Pressable>
+      )}
+      <Modal
+        visible={messageComposerOpen && tab === "Messages"}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMessageComposerOpen(false)}
+      >
+        <KeyboardAvoidingView
+          style={styles.messageModalViewport}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        >
+          <View style={styles.messageModalBackdrop}>
+            <View style={styles.messageComposerCard}>
+              <View style={styles.messageComposerHeader}>
+                <View>
+                  <Text style={styles.messageComposerTitle}>New message</Text>
+                  <Text style={styles.messageComposerHint}>Send a note to someone at your school.</Text>
+                </View>
+                <Pressable onPress={() => setMessageComposerOpen(false)} accessibilityLabel="Close message form">
+                  <Text style={styles.messageComposerClose}>X</Text>
+                </Pressable>
+              </View>
+              <TextInput
+                style={styles.input}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={recipient}
+                onChangeText={setRecipient}
+                placeholder="Recipient email"
+                accessibilityLabel="Recipient email"
+              />
+              <TextInput
+                style={styles.input}
+                value={subjectLine}
+                onChangeText={setSubjectLine}
+                placeholder="Subject"
+                accessibilityLabel="Message subject"
+              />
+              <TextInput
+                style={[styles.input, styles.messageInput]}
+                multiline
+                textAlignVertical="top"
+                value={messageBody}
+                onChangeText={setMessageBody}
+                placeholder="Write a message"
+                accessibilityLabel="Message"
+              />
+              {error ? <Text style={styles.error}>{error}</Text> : null}
+              <Pressable
+                style={[styles.button, (messageSending || !recipient.trim() || !subjectLine.trim() || !messageBody.trim()) && styles.buttonDisabled]}
+                onPress={sendMessage}
+                disabled={messageSending || !recipient.trim() || !subjectLine.trim() || !messageBody.trim()}
+              >
+                <Text style={styles.buttonText}>{messageSending ? "Sending..." : "Send message"}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+      {toast && (
+        <View style={[styles.toast, toast.error && styles.toastError]} accessibilityLiveRegion="polite">
+          <Text style={styles.toastMark}>{toast.error ? "!" : "?"}</Text>
+          <Text style={styles.toastText}>{toast.message}</Text>
+          <Pressable onPress={() => setToast(null)} accessibilityLabel="Dismiss message"><Text style={styles.toastClose}>X</Text></Pressable>
+        </View>
+      )}
+      {assistantOpen && (
+        <View style={styles.assistantPanel} accessibilityLabel="School assistant chat">
+          <View style={styles.assistantHeader}>
+            <View>
+              <Text style={styles.assistantTitle}>School assistant</Text>
+              <Text style={styles.assistantSubtitle}>Navigation and quick answers</Text>
+            </View>
+            <Pressable accessibilityLabel="Close assistant" onPress={() => setAssistantOpen(false)}>
+              <Text style={styles.assistantClose}>X</Text>
+            </Pressable>
+          </View>
+          <ScrollView style={styles.assistantHistory} contentContainerStyle={styles.assistantHistoryContent}>
+            {assistantMessages.map((message) => (
+              <View key={message.id} style={[styles.chatBubble, message.from === "user" ? styles.userBubble : styles.botBubble]}>
+                <Text style={[styles.chatText, message.from === "user" && styles.userChatText]}>{message.text}</Text>
+              </View>
+            ))}
+          </ScrollView>
+          <View style={styles.assistantQuickLinks}>
+            {(["Home", "Attendance", "Leave", "Bus Tracking"] as Tab[])
+              .filter((destination) => tabs.includes(destination))
+              .map((destination) => (
+                <Pressable key={destination} style={styles.assistantChip} onPress={() => navigateFromAssistant(destination)}>
+                  <Text style={styles.assistantChipText}>{destination}</Text>
+                </Pressable>
+              ))}
+          </View>
+          <View style={styles.assistantComposer}>
+            <TextInput
+              style={styles.assistantInput}
+              value={assistantInput}
+              onChangeText={setAssistantInput}
+              placeholder="Ask or find a section..."
+              returnKeyType="send"
+              onSubmitEditing={() => sendAssistantMessage()}
+              accessibilityLabel="Ask the school assistant"
+            />
+            <Pressable style={styles.assistantSend} onPress={() => sendAssistantMessage()} accessibilityLabel="Send message">
+              <Text style={styles.assistantSendText}>Send</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+      <Pressable
+        style={[styles.assistantLauncher, assistantOpen && styles.assistantLauncherOpen]}
+        accessibilityRole="button"
+        accessibilityLabel={assistantOpen ? "Close school assistant" : "Open school assistant"}
+        onPress={() => setAssistantOpen((open) => !open)}
+      >
+        {assistantOpen ? (
+          <Text style={styles.assistantLauncherText}>X</Text>
+        ) : (
+          <View style={styles.botIcon}>
+            <View style={styles.botAntenna}>
+              <View style={styles.botAntennaDot} />
+            </View>
+            <View style={styles.botFace}>
+              <View style={styles.botEyeRow}>
+                <View style={styles.botEye} />
+                <View style={styles.botEye} />
+              </View>
+              <View style={styles.botMouth} />
+            </View>
+          </View>
+        )}
+      </Pressable>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.nav} contentContainerStyle={styles.navContent}>
         {tabs.map((t, i) => (
           <Pressable key={t} style={styles.navItem} onPress={() => setTab(t)}>
@@ -787,6 +1210,7 @@ function AttendanceCard({
 }
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#f5f7fb" },
+  mainScroll: { flex: 1, minHeight: 0 },
   login: { flex: 1, justifyContent: "center", paddingHorizontal: 25 },
   logo: {
     width: 47,
@@ -837,6 +1261,15 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   buttonText: { fontWeight: "700", color: "white", fontSize: 14 },
+  buttonDisabled: { opacity: 0.65 },
+  attendanceSuccess: {
+    color: "#237a48",
+    backgroundColor: "#eaf7ef",
+    padding: 10,
+    borderRadius: 7,
+    fontSize: 12,
+    marginTop: 10,
+  },
   sectionLabel: {
     fontSize: 9,
     color: "#91a0ad",
@@ -904,6 +1337,33 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 21, fontWeight: "800", color: "#234360" },
   statLabel: { fontSize: 9, color: "#8a98a5", marginTop: 3 },
   section: { marginTop: 15 },
+  calendarYearRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 18, marginBottom: 12, padding: 8, borderRadius: 14, backgroundColor: "#f4f8ff" },
+  calendarYearButton: { width: 40, height: 38, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: "white", borderWidth: 1, borderColor: "#e6edf6" },
+  calendarYearButtonText: { color: "#377bd2", fontSize: 20, fontWeight: "700" },
+  calendarYear: { minWidth: 78, textAlign: "center", fontSize: 21, fontWeight: "800", color: "#233a50" },
+  calendarHint: { color: "#697f95", fontSize: 11, lineHeight: 16, textAlign: "center", marginBottom: 10 },
+  calendarLegend: { flexDirection: "row", justifyContent: "center", gap: 18, marginBottom: 14, paddingVertical: 8, borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#edf1f6" },
+  calendarLegendItem: { flexDirection: "row", alignItems: "center", gap: 5 },
+  calendarLegendText: { fontSize: 11, color: "#718397" },
+  holidayLegendDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: "#d75b5b" },
+  eventLegendDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: "#377bd2" },
+  calendarGrid: { flexDirection: "column", rowGap: 10 },
+  calendarMonth: { width: "100%", padding: 12, borderWidth: 1, borderColor: "#e8edf3", borderRadius: 14, backgroundColor: "white" },
+  calendarMonthTitle: { textAlign: "center", fontSize: 14, fontWeight: "800", color: "#354d65", marginBottom: 8 },
+  calendarWeekdays: { flexDirection: "row" },
+  calendarWeekday: { width: "14.28%", textAlign: "center", color: "#9aa6b1", fontSize: 10, paddingVertical: 5, fontWeight: "700" },
+  calendarDays: { flexDirection: "row", flexWrap: "wrap" },
+  calendarDay: { width: "14.28%", height: 37, alignItems: "center", justifyContent: "center", borderRadius: 9, marginVertical: 2 },
+  calendarDayText: { fontSize: 12, color: "#4d6175" },
+  calendarDayHoliday: { backgroundColor: "#fff0ef" },
+  calendarHolidayText: { color: "#b33d3d", fontWeight: "800" },
+  calendarDaySelected: { borderWidth: 1, borderColor: "#377bd2" },
+  calendarSelectedText: { color: "#245da5", fontWeight: "800" },
+  calendarEventDot: { position: "absolute", bottom: 3, width: 4, height: 4, borderRadius: 2, backgroundColor: "#377bd2" },
+  calendarHolidayDot: { backgroundColor: "#d75b5b" },
+  calendarMonthSummary: { minHeight: 16, textAlign: "center", color: "#b34c4c", fontSize: 10, marginTop: 5, fontWeight: "700" },
+  holidayEventCard: { backgroundColor: "#fff7f6", borderColor: "#f4cccc" },
+  holidayBadge: { color: "#b33d3d", backgroundColor: "#fde4e2", overflow: "hidden", borderRadius: 6, paddingHorizontal: 7, paddingVertical: 4, fontSize: 8, fontWeight: "800" },
   sectionTitle: {
     fontSize: 15,
     fontWeight: "700",
@@ -941,9 +1401,135 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 13, fontWeight: "700", color: "#2b435b" },
   cardText: { fontSize: 11, color: "#77899b", lineHeight: 17, marginTop: 5 },
   role: { fontSize: 9, color: "#4c80c4", marginTop: 7, fontWeight: "700" },
+  toast: {
+    position: "absolute",
+    left: 14,
+    right: 82,
+    bottom: 74,
+    zIndex: 30,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 9,
+    paddingVertical: 11,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: "#173b58",
+    elevation: 8,
+    shadowColor: "#10283f",
+    shadowOpacity: 0.2,
+    shadowRadius: 9,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  toastError: { backgroundColor: "#a74640" },
+  toastMark: { width: 22, height: 22, textAlign: "center", textAlignVertical: "center", borderRadius: 11, overflow: "hidden", color: "#173b58", backgroundColor: "#a6e1b9", fontSize: 13, fontWeight: "800" },
+  toastText: { flex: 1, color: "white", fontSize: 11, lineHeight: 16 },
+  toastClose: { color: "#d9e7f2", fontSize: 12, padding: 4 },
+  messageComposeButton: {
+    position: "absolute",
+    right: 82,
+    bottom: 76,
+    zIndex: 20,
+    height: 50,
+    paddingHorizontal: 16,
+    borderRadius: 25,
+    backgroundColor: "#377bd2",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    elevation: 6,
+    shadowColor: "#172b43",
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  messageComposeIcon: { color: "white", fontSize: 23, lineHeight: 26, fontWeight: "700" },
+  messageComposeLabel: { color: "white", fontSize: 12, fontWeight: "700" },
+  messageModalViewport: { flex: 1 },
+  messageModalBackdrop: { flex: 1, justifyContent: "center", padding: 18, backgroundColor: "rgba(14, 31, 48, 0.46)" },
+  messageComposerCard: { width: "100%", maxWidth: 560, maxHeight: "92%", alignSelf: "center", padding: 18, borderRadius: 18, backgroundColor: "white", borderWidth: 1, borderColor: "#e2e9f1", elevation: 12 },
+  messageComposerHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14 },
+  messageComposerTitle: { color: "#233a50", fontSize: 18, fontWeight: "800" },
+  messageComposerHint: { color: "#718397", fontSize: 11, marginTop: 4 },
+  messageComposerClose: { color: "#60758a", fontSize: 28, paddingHorizontal: 7 },
+  assistantLauncher: {
+    position: "absolute",
+    right: 18,
+    bottom: 76,
+    zIndex: 20,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: "#377bd2",
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 6,
+    shadowColor: "#172b43",
+    shadowOpacity: 0.22,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+  },
+  assistantLauncherOpen: { backgroundColor: "#274e78" },
+  assistantLauncherText: { color: "white", fontSize: 25, fontWeight: "700" },
+  botIcon: { width: 30, height: 30, alignItems: "center", justifyContent: "flex-end" },
+  botAntenna: { position: "absolute", top: 1, width: 2, height: 8, backgroundColor: "white", alignItems: "center" },
+  botAntennaDot: { position: "absolute", top: -2, width: 6, height: 6, borderRadius: 3, backgroundColor: "white" },
+  botFace: { width: 28, height: 21, borderRadius: 7, backgroundColor: "white", alignItems: "center", justifyContent: "center", gap: 4 },
+  botEyeRow: { flexDirection: "row", gap: 8 },
+  botEye: { width: 3, height: 4, borderRadius: 2, backgroundColor: "#377bd2" },
+  botMouth: { width: 8, height: 2, borderRadius: 1, backgroundColor: "#377bd2" },
+  assistantPanel: {
+    position: "absolute",
+    right: 14,
+    bottom: 140,
+    zIndex: 19,
+    width: 330,
+    maxWidth: "92%",
+    height: 420,
+    maxHeight: "68%",
+    backgroundColor: "white",
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "#e2e9f1",
+    overflow: "hidden",
+    elevation: 10,
+    shadowColor: "#172b43",
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  assistantHeader: {
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    backgroundColor: "#f2f7fd",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e6edf5",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  assistantTitle: { color: "#233a50", fontSize: 14, fontWeight: "700" },
+  assistantSubtitle: { color: "#8292a1", fontSize: 10, marginTop: 3 },
+  assistantClose: { color: "#60758a", fontSize: 24, paddingHorizontal: 5 },
+  assistantHistory: { flex: 1 },
+  assistantHistoryContent: { padding: 12, gap: 8 },
+  chatBubble: { maxWidth: "90%", padding: 10, borderRadius: 12 },
+  botBubble: { alignSelf: "flex-start", backgroundColor: "#f0f4f8" },
+  userBubble: { alignSelf: "flex-end", backgroundColor: "#377bd2" },
+  chatText: { color: "#344b61", fontSize: 12, lineHeight: 17 },
+  userChatText: { color: "white" },
+  assistantQuickLinks: { paddingHorizontal: 10, paddingTop: 8, flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  assistantChip: { paddingHorizontal: 9, paddingVertical: 6, backgroundColor: "#f2f7fd", borderRadius: 14, borderWidth: 1, borderColor: "#dce8f6" },
+  assistantChipText: { color: "#377bd2", fontSize: 10, fontWeight: "600" },
+  assistantComposer: { padding: 9, flexDirection: "row", alignItems: "center", gap: 7, borderTopWidth: 1, borderTopColor: "#e9edf2" },
+  assistantInput: { flex: 1, height: 40, paddingHorizontal: 11, borderRadius: 20, backgroundColor: "#f5f7fb", color: "#344b61", fontSize: 12 },
+  assistantSend: { paddingHorizontal: 12, paddingVertical: 10, backgroundColor: "#377bd2", borderRadius: 18 },
+  assistantSendText: { color: "white", fontSize: 11, fontWeight: "700" },
   nav: {
     height: 61,
+    minHeight: 61,
     flexGrow: 0,
+    flexShrink: 0,
     backgroundColor: "white",
     borderTopWidth: 1,
     borderTopColor: "#e9edf2",

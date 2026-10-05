@@ -108,11 +108,14 @@ button:disabled {
   box-shadow: inset 3px 0 #69a6ff;
 }
 .nav-icon {
-  width: 17px;
-  font-size: 15px;
-  text-align: center;
+  width: 19px;
+  height: 19px;
+  display: grid;
+  place-items: center;
   color: #9fb4c7;
 }
+.app-icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: 0 0 auto; }
+.family-link-note { grid-column: 1 / -1; color: #59718a; background: #f1f6fc; border: 1px solid #e2ebf5; border-radius: 10px; padding: 12px 14px; font-size: 12px; line-height: 1.5; }
 .nav-item.active .nav-icon {
   color: #82b7ff;
 }
@@ -987,17 +990,26 @@ tbody tr:last-child td {
 }
 .toast {
   position: fixed;
-  bottom: 22px;
-  right: 22px;
-  background: #173b58;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(420px, calc(100vw - 32px));
+  background: #12364f;
   color: white;
-  border-radius: 8px;
-  padding: 13px 18px;
-  box-shadow: 0 8px 28px #132a4050;
-  font-size: 11px;
+  border: 1px solid #ffffff24;
+  border-radius: 13px;
+  padding: 12px 13px;
+  box-shadow: 0 14px 38px #10283f35;
+  font-size: 12px;
+  line-height: 1.4;
   z-index: 10;
-  cursor: pointer;
+  animation: toast-in .2s ease-out;
 }
+.toast-check { width: 24px; height: 24px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; color: #12364f; background: #9de0b6; font-weight: 800; }
+.toast button { margin-left: auto; padding: 3px 5px; border: 0; background: transparent; color: #d7e6f2; font-size: 18px; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
 .modal-backdrop {
   position: fixed;
   inset: 0;

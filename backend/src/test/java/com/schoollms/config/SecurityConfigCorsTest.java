@@ -42,6 +42,19 @@ class SecurityConfigCorsTest {
   }
 
   @Test
+  void developmentWildcardUsesOriginPatternsWithCredentials() {
+    var developmentEnvironment = new MockEnvironment();
+    developmentEnvironment.setActiveProfiles("development");
+    var source = securityConfig.corsConfigurationSource("*", developmentEnvironment);
+    var request = new MockHttpServletRequest("OPTIONS", "/api/auth/login");
+    var cors = source.getCorsConfiguration(request);
+
+    assertTrue(cors.getAllowedOrigins() == null || cors.getAllowedOrigins().isEmpty());
+    assertEquals(java.util.List.of("*"), cors.getAllowedOriginPatterns());
+    assertTrue(cors.getAllowCredentials());
+    assertEquals("http://localhost:8081", cors.checkOrigin("http://localhost:8081"));
+  }
+  @Test
   void productionAllowsCapacitorAndroidOriginAlongsideExplicitWebOrigins() {
     var source =
         securityConfig.corsConfigurationSource(

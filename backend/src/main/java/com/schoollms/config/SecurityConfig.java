@@ -117,7 +117,11 @@ public class SecurityConfig {
             .noneMatch(origin -> CAPACITOR_ANDROID_ORIGIN.equalsIgnoreCase(origin))) {
       allowedOrigins.add(CAPACITOR_ANDROID_ORIGIN);
     }
-    c.setAllowedOrigins(allowedOrigins);
+    if (production) {
+      c.setAllowedOrigins(allowedOrigins);
+    } else {
+      c.setAllowedOriginPatterns(origins.isEmpty() ? List.of("*") : origins);
+    }
     c.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
     c.setAllowedHeaders(List.of("Authorization", "Content-Type"));
     c.setAllowCredentials(true);

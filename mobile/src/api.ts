@@ -1,5 +1,6 @@
 import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 
 const API_BASE_URL = String(
   Constants.expoConfig?.extra?.apiBaseUrl ?? "",
@@ -11,7 +12,7 @@ export type User = {
   id: number;
   email: string;
   name: string;
-  role: "ADMIN" | "TEACHER" | "PARENT" | "STUDENT";
+  role: "ADMIN" | "TEACHER" | "PARENT";
 };
 export type BusRoute = {
   id: number;
@@ -100,6 +101,7 @@ export type SchoolEvent = {
   eventDate: string;
   location: string;
   createdBy: string;
+  holiday: boolean;
 };
 export type LeaveApplication = {
   id: number;
@@ -128,18 +130,29 @@ let token = "";
 let unauthorizedHandler: (() => void) | undefined;
 
 export async function restoreToken() {
-  token = (await SecureStore.getItemAsync(TOKEN_KEY)) ?? "";
+  token =
+    Platform.OS === "web"
+      ? (typeof localStorage === "undefined" ? "" : localStorage.getItem(TOKEN_KEY) ?? "")
+      : (await SecureStore.getItemAsync(TOKEN_KEY)) ?? "";
   return token;
 }
 
 export async function setToken(value: string) {
   token = value;
-  await SecureStore.setItemAsync(TOKEN_KEY, value);
+  if (Platform.OS === "web") {
+    localStorage.setItem(TOKEN_KEY, value);
+  } else {
+    await SecureStore.setItemAsync(TOKEN_KEY, value);
+  }
 }
 
 export async function clearToken() {
   token = "";
-  await SecureStore.deleteItemAsync(TOKEN_KEY);
+  if (Platform.OS === "web") {
+    localStorage.removeItem(TOKEN_KEY);
+  } else {
+    await SecureStore.deleteItemAsync(TOKEN_KEY);
+  }
 }
 
 export function setUnauthorizedHandler(handler?: () => void) {

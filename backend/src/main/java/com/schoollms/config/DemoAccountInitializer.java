@@ -25,8 +25,7 @@ public class DemoAccountInitializer implements ApplicationRunner {
       List.of(
           new DemoAccount("admin@northstar.local", "Admin@123", Role.ADMIN, "System Administrator"),
           new DemoAccount("teacher@northstar.local", "Teacher@123", Role.TEACHER, "Demo Teacher"),
-          new DemoAccount("parent@northstar.local", "Parent@123", Role.PARENT, "Demo Parent"),
-          new DemoAccount("student@northstar.local", "Student@123", Role.STUDENT, "Demo Student"));
+          new DemoAccount("parent@northstar.local", "Parent@123", Role.PARENT, "Demo Parent"));
 
   private final AccountRepository accounts;
   private final StudentRepository students;
@@ -74,9 +73,6 @@ public class DemoAccountInitializer implements ApplicationRunner {
     Account admin = account("admin@northstar.local", "Admin@123", Role.ADMIN, "System Administrator");
     Account teacher = account("teacher@northstar.local", "Teacher@123", Role.TEACHER, "Demo Teacher");
     Account parent = account("parent@northstar.local", "Parent@123", Role.PARENT, "Demo Parent");
-    Account studentLogin =
-        account("student@northstar.local", "Student@123", Role.STUDENT, "Demo Student");
-
     Student student =
         students
             .findByStudentCode(DEMO_STUDENT_CODE)
@@ -84,7 +80,6 @@ public class DemoAccountInitializer implements ApplicationRunner {
                 () -> {
                   Student demoStudent =
                       new Student(DEMO_STUDENT_CODE, "Aarav", "Sharma", "6", "A", 1, parent);
-                  demoStudent.setStudentAccount(studentLogin);
                   return students.save(demoStudent);
                 });
 
@@ -181,8 +176,8 @@ public class DemoAccountInitializer implements ApplicationRunner {
     String notificationTitle = "Demo: Welcome to School LMS";
     String notificationMessage = "Your demo account is ready. Explore your classes and updates here.";
     if (!notifications.existsByRecipient_IdAndTitleAndMessage(
-        studentLogin.getId(), notificationTitle, notificationMessage)) {
-      notifications.save(new Notification(studentLogin, notificationTitle, notificationMessage));
+        parent.getId(), notificationTitle, notificationMessage)) {
+      notifications.save(new Notification(parent, notificationTitle, notificationMessage));
     }
 
     String messageSubject = "Demo: Welcome to the class";

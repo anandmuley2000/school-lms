@@ -9,7 +9,8 @@ public record SchoolEventView(
     String description,
     LocalDate eventDate,
     String location,
-    String createdBy) {
+    String createdBy,
+    boolean holiday) {
   public static SchoolEventView from(SchoolEvent event) {
     return new SchoolEventView(
         event.getId(),
@@ -17,6 +18,7 @@ public record SchoolEventView(
         event.getDescription(),
         event.getEventDate(),
         event.getLocation(),
-        event.getCreatedBy());
+        event.getCreatedBy(),
+        HolidayClassifier.isHoliday(event.getTitle(), event.getDescription()));
   }
 }
