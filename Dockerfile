@@ -2,6 +2,10 @@ FROM maven:3.9.11-eclipse-temurin-21 AS build
 
 WORKDIR /workspace
 
+# The build context is the repository root. Keep the project wrappers available
+# in the build image for the same layout used by local development.
+COPY mvnw mvnw.cmd ./
+COPY .mvn .mvn
 COPY backend/pom.xml backend/pom.xml
 COPY backend/src backend/src
 
@@ -18,6 +22,6 @@ RUN mkdir -p /app/uploads
 
 COPY --from=build /workspace/backend/target/school-lms-api-0.1.0.jar /app/app.jar
 
-EXPOSE 10000
+EXPOSE 8080
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

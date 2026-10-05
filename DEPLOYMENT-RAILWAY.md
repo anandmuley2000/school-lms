@@ -1,40 +1,69 @@
-# Railway deployment guide
+# Railway deployment
 
-## API service
+This repository is a monorepo, but the API image is built from the repository root. The root Dockerfile copies `backend/src` and `backend/pom.xml` alongside the root Maven wrapper files. Setting the service root to `/backend` changes the build context and makes those root-relative Docker `COPY` sources unavailable.
 
-Create a Railway project and a backend service from this repository. Set the service root to the repository root and use the included `Dockerfile`; it builds and runs the Spring Boot API. Provision MySQL 8 separately (Railway MySQL or an external provider) and make its TCP host reachable from the API service. Do not use `localhost` for a separately hosted database.
+## Exact Railway service settings
 
-Set these variables on the API service:
+Configure the existing API service (do not create a second project or service):
+
+| Setting | Value |
+| --- | --- |
+| Source repository | This repository and the branch you deploy |
+| Root Directory | `/` (repository root; do not use `/backend`) |
+| Config as Code / Config File Path | `/railway.json` |
+| Builder | Dockerfile (`DOCKERFILE`) |
+| Dockerfile Path | `Dockerfile` at the repository root |
+| Container port | `8080`; the application listens on Railway's injected `PORT`, defaulting to `8080` |
+| Healthcheck Path | `/actuator/health` |
+| Healthcheck Timeout | `300` seconds |
+
+The checked-in `railway.json` already selects the root Dockerfile and configures the health check and restart policy. Railway's Config File Path is an absolute repository path and is independent of Root Directory. If the dashboard currently points at `/backend/railway.json`, change it to `/railway.json`. The Railway config file does not choose the service Root Directory, so set `/` separately in the dashboard.
+
+## Required API service variables
+
+Set these in the Railway service's Variables tab. Keep all passwords and secrets in Railway Variables; do not put actual values in Git.
 
 | Variable | Value |
 | --- | --- |
 | `SPRING_PROFILES_ACTIVE` | `production` |
-| `DB_HOST` | MySQL hostname |
-| `DB_PORT` | MySQL port, usually `3306` |
+| `DB_HOST` | Reachable MySQL hostname (not `localhost`) |
+| `DB_PORT` | MySQL port, commonly `3306` |
 | `DB_NAME` | Database/schema name |
-| `DB_USERNAME` | Database username |
-| `DB_PASSWORD` | Database password |
-| `DB_SSL_MODE` | `REQUIRED` when provider supports TLS |
+| `DB_USERNAME` | MySQL username |
+| `DB_PASSWORD` | MySQL password |
+| `DB_SSL_MODE` | `REQUIRED` when supported by the database provider |
 | `JWT_SECRET` | Random secret of at least 32 bytes |
-| `CORS_ALLOWED_ORIGINS` | Comma separated exact HTTPS origins for deployed web clients |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated exact HTTPS origins for deployed web clients |
 | `DEMO_DATA_ENABLED` | `false` |
 
-Railway provides `PORT`; the app binds to `0.0.0.0` and uses it automatically. Enable a public HTTPS domain for this service. Configure the health check as `/actuator/health`. The API base URL used by clients is `https://YOUR_API_HOST/api`.
+Railway supplies `PORT` to the service. The production Spring configuration binds to `0.0.0.0` and uses `${PORT:8080}`. Do not set `PORT` to a value that conflicts with Railway's assigned port. `EXPOSE 8080` documents the app's fallback/container port; Railway routes to the runtime `PORT`.
 
-## Database migration and initial admin
+The production datasource reads `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`, and `DB_SSL_MODE`. Production schema validation remains enabled (`ddl-auto=validate`); demo data and reset endpoints remain disabled by default.
 
-Take a database backup before any release. For an existing installation, run the numbered SQL migration in `backend/schema/migrations` against the selected schema, then deploy. `ddl-auto=validate` means startup rejects a schema that does not match the code. Demo accounts and reset endpoints are disabled in production. There is no production first-admin bootstrap endpoint today: an operator must provision the first ADMIN row through a one-time audited DBA operation, using a BCrypt password hash. The normal account-management endpoint becomes available after that first admin can sign in. Never seed production from the development fixture.
+## Database migration
 
-## Web admin
+1. Provision or select the production MySQL 8 database and verify the API service can reach its host and port.
+2. Take a database backup before changing schema.
+3. Apply each numbered SQL migration in `backend/schema/migrations` in filename order using the database provider's SQL console or a MySQL client. For the current migration, run `backend/schema/migrations/V2__timetable_leave_and_bus.sql` against `DB_NAME`.
+4. Confirm the SQL migration completed successfully before deploying. The API intentionally fails startup when the schema does not match the entities.
+5. Do not run development seed fixtures against production. Production has no first-admin bootstrap endpoint; provision the first ADMIN account through an audited DBA operation using a BCrypt password hash.
 
-Build and host the existing Vite admin app as a static site. Set `VITE_API_BASE_URL=https://YOUR_API_HOST/api` at build time. Add the exact static-site HTTPS origin to `CORS_ALLOWED_ORIGINS`, then rebuild the admin site. The value must include scheme and host, without a trailing slash.
+## Deploy or redeploy the existing service
 
-## Android client
+1. Commit and push the intended changes to the branch connected to the existing Railway service.
+2. In the Railway dashboard, open the existing API service and set Root Directory to `/`.
+3. Set Config File Path to `/railway.json`; set the Dockerfile path to `Dockerfile` if the dashboard shows that field. Ensure the builder is Dockerfile.
+4. Add/verify the production variables above and the MySQL connection values. Do not paste secrets into the repository or deployment logs.
+5. Trigger a deployment from the latest commit (or use **Redeploy** after saving settings).
+6. Inspect build logs. Railway should use the root `Dockerfile`; Docker `COPY backend/...` should resolve from the repository root.
+7. Wait for `/actuator/health` to report healthy, then verify the deployed API at `https://YOUR_API_HOST/actuator/health` and the API base URL `https://YOUR_API_HOST/api`.
 
-The Expo app reads `EXPO_PUBLIC_API_BASE_URL` at build time (or `expo.extra.apiBaseUrl` from its app config). For a release, use `https://YOUR_API_HOST/api`, set `APP_ENV=production`, and build the Android app from `mobile/`. The app should not point at a workstation IP, localhost, or an HTTP endpoint. Android release signing is intentionally provided through private Gradle properties/CI secrets; the repository does not contain a production signing key. Keep the keystore and passwords outside source control and retain secure backups.
+## Web admin and mobile clients
 
-For a store-ready Expo release, provide `ANDROID_KEYSTORE_FILE`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, and `ANDROID_KEY_PASSWORD` to the build process from a team-controlled keystore and CI secret store. The Gradle release config uses that key when all four values are present. Without it, a local `assembleRelease` falls back to the debug key for sideload testing only. Never upload that test APK to a store. If distributing the Capacitor wrapper instead, set `VITE_API_BASE_URL` before `npm run build` in `capacitor/`, sync the Android project, and sign its release APK/AAB with the same private-key handling.
+Build and host the existing Vite admin app separately as a static site. Set `VITE_API_BASE_URL=https://YOUR_API_HOST/api` at production build time and add the static site's exact HTTPS origin to `CORS_ALLOWED_ORIGINS`. Local development remains independent and may use a local API; a production HTTPS URL is not required to run the local development build.
+
+The Expo app reads `EXPO_PUBLIC_API_BASE_URL` at build time (or `expo.extra.apiBaseUrl` from its app config). For a production mobile build use `https://YOUR_API_HOST/api`, set `APP_ENV=production`, and build from `mobile/`. Keep Android signing files and passwords in local Gradle properties or CI secrets. The repository does not contain a production signing key.
 
 ## Release verification
 
-After deploying, verify `/actuator/health`, sign in with a non-demo production account, and exercise the parent, teacher, and admin workflows against the production API. Test a second Android device on cellular data to confirm no local-network dependency. Treat this guide as configuration instructions; it does not indicate that a Railway service, domain, release keystore, or production account has already been created.
+After deployment, verify `/actuator/health`, sign in with a non-demo production account, and exercise the parent, teacher, and admin workflows against the production API. Test an Android device on cellular data to confirm the app does not depend on a workstation IP. This guide does not mean that a Railway deployment, domain, release keystore, or production account has already been created.

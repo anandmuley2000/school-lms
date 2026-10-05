@@ -15,6 +15,7 @@ jobs:
           java-version: '21'
           cache: maven
       - run: ./mvnw -f backend/pom.xml test
+      - run: ./mvnw -f backend/pom.xml package -DskipTests
 
   frontends:
     runs-on: ubuntu-latest
