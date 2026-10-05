@@ -4,7 +4,7 @@ This repository is a monorepo, but the API image is built from the repository ro
 
 ## Exact Railway service settings
 
-The root [`railway.json`](railway.json) selects the Spring Boot API Dockerfile. A Railway service using that file is the **backend**; it cannot be the React frontend. Keep the API service attached to the repository root. If the existing `courteous-truth` service is the frontend, it has a separate config at [`admin/railway.json`](admin/railway.json) and must use the admin directory. The actual Railway service-to-domain mapping cannot be inferred from repository files; confirm the service names and domains in the existing project dashboard.
+This project uses three existing Railway services: `courteous-truth` for the Spring Boot API, `MySQL` for the database, and `school-lms` for the React admin frontend. The root [`railway.json`](railway.json) selects the backend Dockerfile; the frontend must use [`admin/railway.json`](admin/railway.json). Keep these service roots and health checks separate. Public service domains are assigned in the Railway dashboard and are not configured in this repository.
 
 Configure the existing API service (do not create a second project or service):
 
@@ -64,7 +64,7 @@ The production datasource reads `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, 
 
 ## Web admin and mobile clients
 
-For an existing Railway frontend service, set **Root Directory** to `/admin` and **Config File Path** to `/admin/railway.json`. That config builds the Vite app and serves `admin/dist` on Railway's `PORT`. Set its `VITE_API_BASE_URL` to the actual backend HTTPS URL ending in `/api`. Add the frontend's exact HTTPS origin to the backend's `CORS_ALLOWED_ORIGINS`. Local development remains independent and may use a local API; a production HTTPS URL is not required to run the local development build.
+For the existing Railway frontend service `school-lms`, set **Root Directory** to `/admin`, **Config File Path** to `/admin/railway.json`, and **Builder** to Railpack. Its build command is `npm ci --include=dev && npm run build`; its start command serves `dist` on `0.0.0.0:$PORT`, and its health check is `/` (never `/actuator/health`). Set its build variable `VITE_API_URL` to the actual `courteous-truth` backend HTTPS URL ending in `/api` (the older `VITE_API_BASE_URL` name remains accepted for compatibility). Add the frontend's exact HTTPS origin to the backend's `CORS_ALLOWED_ORIGINS`. Local development remains independent and may use a local API; a production HTTPS URL is not a prerequisite for the local development build.
 
 The Expo app reads `EXPO_PUBLIC_API_BASE_URL` at build time (or `expo.extra.apiBaseUrl` from its app config). For a production mobile build set it to the actual `https://YOUR-BACKEND-DOMAIN/api`, set `APP_ENV=production`, and build from `mobile/`. Keep Android signing files and passwords in local Gradle properties or CI secrets. The repository does not contain a production signing key.
 

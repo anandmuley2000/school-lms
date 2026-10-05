@@ -66,7 +66,7 @@ Do not set `PORT`; Render supplies it. The app listens on `${PORT:8080}` and bin
 
 1. Choose **New > Static Site**, select the same repository, and set Root Directory to `admin`.
 2. Set Build Command to `npm ci && npm run build` and Publish Directory to `dist`.
-3. Add the build-time variable `VITE_API_BASE_URL` with the actual backend HTTPS URL ending in `/api`, for example `https://<actual-backend-host>/api`. Do not include a placeholder or local IP.
+3. Add the build-time variable `VITE_API_URL` with the actual backend HTTPS URL ending in `/api`, for example `https://<actual-backend-host>/api`. Do not include a placeholder or local IP.
 4. Create the site and copy its actual HTTPS origin (scheme and host only).
 5. Add that origin to the backend's `CORS_ALLOWED_ORIGINS`, retaining `https://localhost`, then redeploy the backend. Production rejects wildcard, HTTP, placeholders, and non-HTTPS CORS origins.
 
@@ -87,7 +87,7 @@ The demo account is seeded only by the `development` profile. It is not created 
 
 ## 6. Capacitor and Android APK
 
-The existing Capacitor config uses `admin/dist`. Set `VITE_API_BASE_URL` to the real HTTPS API URL, then from the repository root run:
+The existing Capacitor config uses `admin/dist`. Set `VITE_API_URL` to the real HTTPS API URL, then from the repository root run:
 
 ```powershell
 npm --prefix admin ci
@@ -108,7 +108,7 @@ The current backend declares `FILE_UPLOAD_PATH`, but inspection found no upload 
 ## Troubleshooting
 
 - **Backend health check fails:** inspect startup logs for missing env vars, inaccessible MySQL, TLS/certificate errors, or JPA schema mismatch. Confirm the selected Render plan can reach the database and the health path is exactly `/actuator/health`.
-- **Frontend build says API URL invalid:** set `VITE_API_BASE_URL` in the Static Site's build environment to the real HTTPS backend URL ending in `/api`, then redeploy.
+- **Frontend build says API URL invalid:** set `VITE_API_URL` in the Static Site's build environment to the real HTTPS backend URL ending in `/api`, then redeploy.
 - **Browser CORS error:** set `CORS_ALLOWED_ORIGINS` to the exact frontend origin (no path or trailing slash), comma-separated with `https://localhost`, and redeploy the backend.
 - **Login returns 401:** production does not seed `admin@schooldemo.com`; provision an administrator account first. A 401 from `/api/auth/me` also means the bearer token is missing/expired/invalid.
 - **Authenticated request returns 403:** the account is authenticated but lacks the required role/permission.
