@@ -44,8 +44,8 @@ The production datasource reads `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, 
 
 1. Provision or select the production MySQL 8 database and verify the API service can reach its host and port.
 2. Take a database backup before changing schema.
-3. Apply each numbered SQL migration in `backend/schema/migrations` in filename order using the database provider's SQL console or a MySQL client. For the current migration, run `backend/schema/migrations/V2__timetable_leave_and_bus.sql` against `DB_NAME`.
-4. Confirm the SQL migration completed successfully before deploying. The API intentionally fails startup when the schema does not match the entities.
+3. Apply each numbered SQL migration in `backend/schema/migrations` in filename order using the database provider's SQL console or a MySQL client. For the current migration, run `backend/schema/migrations/V2__timetable_leave_and_bus.sql` against `DB_NAME`. The migration is also packaged in the API JAR at `BOOT-INF/classes/db/migration/V2__timetable_leave_and_bus.sql` and included in the Docker build context.
+4. Run the migration once against a backup-confirmed database; it adds nullable fields and a timetable table without deleting student or parent records. Do not re-run it against a schema where its changes already exist. Confirm the SQL migration completed successfully before deploying. Migrations are not automatically applied at API startup; the API intentionally validates the schema and fails startup when the migration was missed.
 5. Do not run development seed fixtures against production. Production has no first-admin bootstrap endpoint; provision the first ADMIN account through an audited DBA operation using a BCrypt password hash.
 
 ## Deploy or redeploy the existing service

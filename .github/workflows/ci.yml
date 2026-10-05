@@ -16,6 +16,7 @@ jobs:
           cache: maven
       - run: ./mvnw -f backend/pom.xml test
       - run: ./mvnw -f backend/pom.xml package -DskipTests
+      - run: jar tf backend/target/school-lms-api-0.1.0.jar | grep -Fxq BOOT-INF/classes/db/migration/V2__timetable_leave_and_bus.sql
 
   frontends:
     runs-on: ubuntu-latest

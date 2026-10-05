@@ -8,6 +8,7 @@ COPY mvnw mvnw.cmd ./
 COPY .mvn .mvn
 COPY backend/pom.xml backend/pom.xml
 COPY backend/src backend/src
+COPY backend/schema/migrations backend/schema/migrations
 
 RUN mvn --batch-mode --no-transfer-progress -f backend/pom.xml clean package -DskipTests
 
