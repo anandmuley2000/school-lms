@@ -24,6 +24,9 @@ public class SchoolEvent {
   @Column(nullable = false)
   private LocalDate eventDate;
 
+  @Column(nullable = false)
+  private boolean holiday;
+
   private String location;
 
   @ManyToOne(optional = false)
@@ -36,15 +39,23 @@ public class SchoolEvent {
 
   public SchoolEvent(
       String title, String description, LocalDate eventDate, String location, Account createdBy) {
-    update(title, description, eventDate, location);
+    this(title, description, eventDate, location, false, createdBy);
+  }
+
+  public SchoolEvent(
+      String title, String description, LocalDate eventDate, String location, boolean holiday,
+      Account createdBy) {
+    update(title, description, eventDate, location, holiday);
     this.createdBy = createdBy;
   }
 
-  public void update(String title, String description, LocalDate eventDate, String location) {
+  public void update(
+      String title, String description, LocalDate eventDate, String location, boolean holiday) {
     this.title = title;
     this.description = description;
     this.eventDate = eventDate;
     this.location = location;
+    this.holiday = holiday;
   }
 
   public Long getId() {
@@ -65,6 +76,10 @@ public class SchoolEvent {
 
   public String getLocation() {
     return location;
+  }
+
+  public boolean isHoliday() {
+    return holiday;
   }
 
   public String getCreatedBy() {

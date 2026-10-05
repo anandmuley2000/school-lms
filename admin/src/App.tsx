@@ -617,7 +617,8 @@ function EventsPage({
     description: string;
     eventDate: string;
     location: string;
-  }>({ title: "", description: "", eventDate: "", location: "" });
+    holiday: boolean;
+  }>({ title: "", description: "", eventDate: "", location: "", holiday: false });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const isAdmin = user.role === "ADMIN";
@@ -634,9 +635,10 @@ function EventsPage({
           description: draft.description,
           eventDate: draft.eventDate,
           location: draft.location,
+          holiday: draft.holiday,
         }),
       });
-      setDraft({ title: "", description: "", eventDate: "", location: "" });
+      setDraft({ title: "", description: "", eventDate: "", location: "", holiday: false });
       await onSaved();
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Could not save event");
@@ -660,7 +662,7 @@ function EventsPage({
       {isAdmin && (
         <form className="panel form-panel" onSubmit={save}>
           <h2>{draft.id ? "Edit school event" : "Add school event"}</h2>
-          <p className="muted">Sundays appear as weekly holidays. Festival names such as Diwali, Eid, Christmas, Holi, and Ganesh Chaturthi are automatically marked as holidays; you can also include “Holiday” in the title.</p>
+          <p className="muted">Mark a school closure as a holiday to highlight it in the calendar and send the reminder the day before. The school controls these dates.</p>
           {error && <div className="form-error">{error}</div>}
           <div className="form-grid">
             <label>
@@ -688,6 +690,14 @@ function EventsPage({
                 onChange={(event) => setDraft({ ...draft, location: event.target.value })}
               />
             </label>
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={draft.holiday}
+                onChange={(event) => setDraft({ ...draft, holiday: event.target.checked })}
+              />
+              School holiday
+            </label>
             <label className="wide">
               Description
               <textarea
@@ -705,7 +715,7 @@ function EventsPage({
               <button
                 type="button"
                 className="secondary"
-                onClick={() => setDraft({ title: "", description: "", eventDate: "", location: "" })}
+                onClick={() => setDraft({ title: "", description: "", eventDate: "", location: "", holiday: false })}
               >
                 Cancel edit
               </button>
@@ -718,7 +728,7 @@ function EventsPage({
           <article className="record-card" key={item.id}>
             <div>
               <span className="record-date">{item.eventDate}</span>
-              <h3>{item.title}</h3>
+              <h3>{item.title}{item.holiday && <span className="holiday-badge">HOLIDAY</span>}</h3>
               <p>{item.description || "No event details provided."}</p>
               <small>{item.location || "Location to be announced"} · Added by {item.createdBy}</small>
             </div>
@@ -908,7 +918,7 @@ function LeavePage({
                 <small>
                   {item.startDate} – {item.endDate} · Requested by {item.requesterName}
                 </small>
-                {item.reviewedAt && <p><small>Reviewed {new Date(item.reviewedAt).toLocaleString()} · {item.reviewerRemark || "No review note"}</small></p>}
+                {item.reviewedAt && <p><small>Reviewed by {item.reviewerName || "school staff"} · {new Date(item.reviewedAt).toLocaleString()} · {item.reviewerRemark || "No review note"}</small></p>}
               </div>
               <div className="record-actions">
                 {canReview && pending && (

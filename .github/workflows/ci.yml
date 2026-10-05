@@ -17,6 +17,8 @@ jobs:
       - run: ./mvnw -f backend/pom.xml test
       - run: ./mvnw -f backend/pom.xml package -DskipTests
       - run: jar tf backend/target/school-lms-api-0.1.0.jar | grep -Fxq BOOT-INF/classes/db/migration/V2__timetable_leave_and_bus.sql
+      - run: jar tf backend/target/school-lms-api-0.1.0.jar | grep -Fxq BOOT-INF/classes/db/migration/V3__explicit_event_holidays.sql
+      - run: jar tf backend/target/school-lms-api-0.1.0.jar | grep -Fxq BOOT-INF/classes/db/migration/V4__leave_reviewer_name.sql
 
   frontends:
     runs-on: ubuntu-latest

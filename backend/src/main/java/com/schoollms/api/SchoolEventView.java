@@ -19,6 +19,6 @@ public record SchoolEventView(
         event.getEventDate(),
         event.getLocation(),
         event.getCreatedBy(),
-        HolidayClassifier.isHoliday(event.getTitle(), event.getDescription()));
+        event.isHoliday());
   }
 }

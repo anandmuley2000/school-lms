@@ -41,6 +41,8 @@ public class LeaveApplication {
   @Column(length = 2000)
   private String reviewerRemark;
 
+  private String reviewerName;
+
   private Instant reviewedAt;
 
   protected LeaveApplication() {}
@@ -58,8 +60,9 @@ public class LeaveApplication {
     this.reason = reason;
   }
 
-  public void setStatus(LeaveStatus status) {
+  public void setStatus(LeaveStatus status, Account reviewer) {
     this.status = status;
+    this.reviewerName = reviewer.getName();
     this.reviewedAt = Instant.now();
   }
 
@@ -105,5 +108,9 @@ public class LeaveApplication {
 
   public Instant getReviewedAt() {
     return reviewedAt;
+  }
+
+  public String getReviewerName() {
+    return reviewerName;
   }
 }

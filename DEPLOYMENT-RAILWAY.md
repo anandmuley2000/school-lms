@@ -4,6 +4,8 @@ This repository is a monorepo, but the API image is built from the repository ro
 
 ## Exact Railway service settings
 
+The root [`railway.json`](railway.json) selects the Spring Boot API Dockerfile. A Railway service using that file is the **backend**; it cannot be the React frontend. Keep the API service attached to the repository root. If the existing `courteous-truth` service is the frontend, it has a separate config at [`admin/railway.json`](admin/railway.json) and must use the admin directory. The actual Railway service-to-domain mapping cannot be inferred from repository files; confirm the service names and domains in the existing project dashboard.
+
 Configure the existing API service (do not create a second project or service):
 
 | Setting | Value |
@@ -26,15 +28,17 @@ Set these in the Railway service's Variables tab. Keep all passwords and secrets
 | Variable | Value |
 | --- | --- |
 | `SPRING_PROFILES_ACTIVE` | `production` |
-| `DB_HOST` | Reachable MySQL hostname (not `localhost`) |
-| `DB_PORT` | MySQL port, commonly `3306` |
-| `DB_NAME` | Database/schema name |
-| `DB_USERNAME` | MySQL username |
-| `DB_PASSWORD` | MySQL password |
+| `DB_HOST` | `${{MySQL.MYSQLHOST}}` |
+| `DB_PORT` | `${{MySQL.MYSQLPORT}}` |
+| `DB_NAME` | `${{MySQL.MYSQLDATABASE}}` |
+| `DB_USERNAME` | `${{MySQL.MYSQLUSER}}` |
+| `DB_PASSWORD` | `${{MySQL.MYSQLPASSWORD}}` |
 | `DB_SSL_MODE` | `REQUIRED` when supported by the database provider |
 | `JWT_SECRET` | Random secret of at least 32 bytes |
-| `CORS_ALLOWED_ORIGINS` | Comma-separated exact HTTPS origins for deployed web clients |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated exact HTTPS origins for deployed web clients, without paths or wildcards |
 | `DEMO_DATA_ENABLED` | `false` |
+
+Railway variable references use the MySQL service name exactly as shown in the project. The expressions above assume its service is named `MySQL`; if the dashboard label differs, replace `MySQL` in each reference with that exact service name. Add `CORS_ALLOWED_ORIGINS` after confirming the actual frontend domain. If that domain is `https://courteous-truth-production-470f.up.railway.app`, use that origin only when the dashboard confirms it is the frontend; do not set the API's own domain as a browser origin by assumption.
 
 Railway supplies `PORT` to the service. The production Spring configuration binds to `0.0.0.0` and uses `${PORT:8080}`. Do not set `PORT` to a value that conflicts with Railway's assigned port. `EXPOSE 8080` documents the app's fallback/container port; Railway routes to the runtime `PORT`.
 
@@ -44,8 +48,8 @@ The production datasource reads `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, 
 
 1. Provision or select the production MySQL 8 database and verify the API service can reach its host and port.
 2. Take a database backup before changing schema.
-3. Apply each numbered SQL migration in `backend/schema/migrations` in filename order using the database provider's SQL console or a MySQL client. For the current migration, run `backend/schema/migrations/V2__timetable_leave_and_bus.sql` against `DB_NAME`. The migration is also packaged in the API JAR at `BOOT-INF/classes/db/migration/V2__timetable_leave_and_bus.sql` and included in the Docker build context.
-4. Run the migration once against a backup-confirmed database; it adds nullable fields and a timetable table without deleting student or parent records. Do not re-run it against a schema where its changes already exist. Confirm the SQL migration completed successfully before deploying. Migrations are not automatically applied at API startup; the API intentionally validates the schema and fails startup when the migration was missed.
+3. Apply each numbered SQL migration in `backend/schema/migrations` in filename order using the database provider's SQL console or a MySQL client: `V2__timetable_leave_and_bus.sql`, `V3__explicit_event_holidays.sql`, then `V4__leave_reviewer_name.sql`, each against `DB_NAME`. They are also packaged in the API JAR under `BOOT-INF/classes/db/migration/`.
+4. Run the scripts against a backup-confirmed database. V2 is safe to re-run after a partial application and adds fields/tables without deleting student or parent records. V3 adds the explicit holiday flag while preserving existing events (they default to non-holiday until an admin marks them). Migrations are not automatically applied at API startup; the API validates the schema and fails startup when migrations are missing.
 5. Do not run development seed fixtures against production. Production has no first-admin bootstrap endpoint; provision the first ADMIN account through an audited DBA operation using a BCrypt password hash.
 
 ## Deploy or redeploy the existing service
@@ -60,9 +64,9 @@ The production datasource reads `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, 
 
 ## Web admin and mobile clients
 
-Build and host the existing Vite admin app separately as a static site. Set `VITE_API_BASE_URL=https://YOUR_API_HOST/api` at production build time and add the static site's exact HTTPS origin to `CORS_ALLOWED_ORIGINS`. Local development remains independent and may use a local API; a production HTTPS URL is not required to run the local development build.
+For an existing Railway frontend service, set **Root Directory** to `/admin` and **Config File Path** to `/admin/railway.json`. That config builds the Vite app and serves `admin/dist` on Railway's `PORT`. Set its `VITE_API_BASE_URL` to the actual backend HTTPS URL ending in `/api`. Add the frontend's exact HTTPS origin to the backend's `CORS_ALLOWED_ORIGINS`. Local development remains independent and may use a local API; a production HTTPS URL is not required to run the local development build.
 
-The Expo app reads `EXPO_PUBLIC_API_BASE_URL` at build time (or `expo.extra.apiBaseUrl` from its app config). For a production mobile build use `https://YOUR_API_HOST/api`, set `APP_ENV=production`, and build from `mobile/`. Keep Android signing files and passwords in local Gradle properties or CI secrets. The repository does not contain a production signing key.
+The Expo app reads `EXPO_PUBLIC_API_BASE_URL` at build time (or `expo.extra.apiBaseUrl` from its app config). For a production mobile build set it to the actual `https://YOUR-BACKEND-DOMAIN/api`, set `APP_ENV=production`, and build from `mobile/`. Keep Android signing files and passwords in local Gradle properties or CI secrets. The repository does not contain a production signing key.
 
 ## Release verification
 

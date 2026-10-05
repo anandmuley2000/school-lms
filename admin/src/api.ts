@@ -124,6 +124,7 @@ export type LeaveApplication = {
   createdAt: string;
   reviewerRemark: string | null;
   reviewedAt: string | null;
+  reviewerName: string | null;
 };
 export type TimetableEntry = {
   id: number;

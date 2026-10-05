@@ -47,7 +47,7 @@ public class HolidayReminderService {
 
     events.findAllByOrderByEventDateAsc().stream()
         .filter(event -> tomorrow.equals(event.getEventDate()))
-        .filter(event -> HolidayClassifier.isHoliday(event.getTitle(), event.getDescription()))
+        .filter(com.schoollms.domain.SchoolEvent::isHoliday)
         .forEach(
             event -> {
               String message =

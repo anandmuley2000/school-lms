@@ -9,4 +9,5 @@ public record SchoolEventRequest(
     @NotBlank @Size(max = 120) String title,
     @Size(max = 4000) String description,
     @NotNull LocalDate eventDate,
-    @Size(max = 160) String location) {}
+    @Size(max = 160) String location,
+    boolean holiday) {}

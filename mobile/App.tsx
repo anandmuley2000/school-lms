@@ -59,70 +59,6 @@ const formatCalendarDate = (date: string) =>
   new Date(`${date}T00:00:00`).toLocaleDateString(undefined, {
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
-// Common India/Maharashtra festival and public holiday dates for 2026–2027.
-// Dates can vary by region and local observance; schools can add their own dates in Events.
-const FESTIVAL_DATES: { date: string; title: string }[] = ([
-  ["2026-01-14", "Makar Sankranti / Pongal"],
-  ["2026-01-26", "Republic Day"],
-  ["2026-02-15", "Maha Shivaratri"],
-  ["2026-02-19", "Chhatrapati Shivaji Maharaj Jayanti"],
-  ["2026-03-03", "Holi"],
-  ["2026-03-19", "Gudi Padwa"],
-  ["2026-03-21", "Eid al-Fitr (date may vary)"],
-  ["2026-03-26", "Ram Navami"],
-  ["2026-03-31", "Mahavir Jayanti"],
-  ["2026-04-03", "Good Friday"],
-  ["2026-04-14", "Dr. Babasaheb Ambedkar Jayanti"],
-  ["2026-05-01", "Maharashtra Day / Buddha Purnima"],
-  ["2026-05-27", "Eid al-Adha (date may vary)"],
-  ["2026-06-26", "Muharram (date may vary)"],
-  ["2026-08-15", "Independence Day / Parsi New Year"],
-  ["2026-08-26", "Eid-e-Milad (date may vary)"],
-  ["2026-08-04", "Janmashtami"],
-  ["2026-09-05", "Gopal Kala / Dahi Handi"],
-  ["2026-09-14", "Ganesh Chaturthi"],
-  ["2026-09-25", "Anant Chaturdashi"],
-  ["2026-10-02", "Mahatma Gandhi Jayanti"],
-  ["2026-10-20", "Dussehra / Vijayadashami"],
-  ["2026-11-08", "Diwali / Lakshmi Pujan"],
-  ["2026-11-09", "Deepavali Holiday"],
-  ["2026-11-10", "Diwali Padwa"],
-  ["2026-11-11", "Bhai Dooj / Bhaubeej"],
-  ["2026-11-24", "Guru Nanak Jayanti"],
-  ["2026-12-25", "Christmas Day"],
-  ["2027-01-26", "Republic Day"],
-  ["2027-02-19", "Chhatrapati Shivaji Maharaj Jayanti"],
-  ["2027-03-06", "Maha Shivaratri"],
-  ["2027-03-10", "Eid al-Fitr (date may vary)"],
-  ["2027-03-22", "Holi"],
-  ["2027-03-26", "Good Friday"],
-  ["2027-04-08", "Gudi Padwa"],
-  ["2027-04-14", "Dr. Babasaheb Ambedkar Jayanti"],
-  ["2027-04-15", "Ram Navami"],
-  ["2027-04-19", "Mahavir Jayanti"],
-  ["2027-05-01", "Maharashtra Day"],
-  ["2027-05-17", "Eid al-Adha (date may vary)"],
-  ["2027-05-20", "Buddha Purnima"],
-  ["2027-06-15", "Muharram (date may vary)"],
-  ["2027-08-15", "Independence Day / Parsi New Year / Eid-e-Milad (dates may vary)"],
-  ["2027-09-04", "Ganesh Chaturthi"],
-  ["2027-10-02", "Mahatma Gandhi Jayanti"],
-  ["2027-10-10", "Dussehra / Vijayadashami"],
-  ["2027-10-29", "Diwali"],
-  ["2027-10-30", "Deepavali Holiday"],
-  ["2027-11-14", "Guru Nanak Jayanti"],
-  ["2027-12-25", "Christmas Day"],
-] as [string, string][]).map(([date, title]) => ({ date, title }));
-const festivalEventsForYear = (year: number): SchoolEvent[] =>
-  FESTIVAL_DATES.filter((festival) => festival.date.startsWith(`${year}-`)).map((festival, index) => ({
-    id: -1000 - index,
-    title: festival.title,
-    description: "Festival and public holiday calendar entry. Confirm the school's local holiday schedule with the administration.",
-    eventDate: festival.date,
-    location: "School calendar",
-    createdBy: "School calendar",
-    holiday: true,
-  }));
 const demos = [
   { role: "ADMIN", email: "admin@northstar.local", password: "Admin@123" },
   { role: "TEACHER", email: "teacher@northstar.local", password: "Teacher@123" },
@@ -333,7 +269,7 @@ function AppContent() {
     setCalendarYear(nextYear);
     setSelectedCalendarDate(dateKey(nextYear, month, Math.min(day, new Date(nextYear, month + 1, 0).getDate())));
   }
-  const calendarEvents = [...events, ...festivalEventsForYear(calendarYear)];
+  const calendarEvents = events;
   async function mark() {
     if (!markId) {
       setAttendanceMessage("Select a student before saving attendance.");
@@ -711,7 +647,7 @@ function AppContent() {
                 <Text style={styles.calendarYear}>{calendarYear}</Text>
                 <Pressable style={styles.calendarYearButton} onPress={() => changeCalendarYear(1)} accessibilityLabel="Next year"><Text style={styles.calendarYearButtonText}>{">"}</Text></Pressable>
               </View>
-              <Text style={styles.calendarHint}>{calendarYear === 2026 || calendarYear === 2027 ? "Sundays are weekly holidays. Festival dates are shown as HOLIDAY; confirm locally observed dates with the school." : "Sundays are weekly holidays. Ask the school to add festival dates for this year in Events."}</Text>
+              <Text style={styles.calendarHint}>Sundays are weekly holidays. Other school holidays and events are maintained by the school administration.</Text>
               <View style={styles.calendarLegend}>
                 <View style={styles.calendarLegendItem}><View style={styles.holidayLegendDot} /><Text style={styles.calendarLegendText}>Sunday / holiday</Text></View>
                 <View style={styles.calendarLegendItem}><View style={styles.eventLegendDot} /><Text style={styles.calendarLegendText}>School event</Text></View>
@@ -798,9 +734,9 @@ function AppContent() {
                   {leave.studentId !== null && <Text style={styles.cardText}>Requested by {leave.requesterName} ({leave.requesterEmail})</Text>}
                   <Text style={styles.cardText}>{leave.startDate} to {leave.endDate}</Text>
                   <Text style={styles.cardText}>{leave.reason}</Text>
-                  {leave.reviewedAt && <Text style={styles.role}>Reviewed {new Date(leave.reviewedAt).toLocaleDateString()} · {leave.reviewerRemark || "No review note"}</Text>}
+                  {leave.reviewedAt && <Text style={styles.role}>Reviewed by {leave.reviewerName || "school staff"} · {new Date(leave.reviewedAt).toLocaleDateString()} · {leave.reviewerRemark || "No review note"}</Text>}
                   {canReview && leave.status === "PENDING" && <TextInput style={styles.input} value={leaveReviewerRemark} onChangeText={setLeaveReviewerRemark} placeholder="Optional review note" />}
-                  {leave.reviewedAt && <Text style={styles.role}>Reviewed {new Date(leave.reviewedAt).toLocaleDateString()} · {leave.reviewerRemark || "No review note"}</Text>}
+                  {leave.reviewedAt && <Text style={styles.role}>Reviewed by {leave.reviewerName || "school staff"} · {new Date(leave.reviewedAt).toLocaleDateString()} · {leave.reviewerRemark || "No review note"}</Text>}
                   {canReview && leave.status === "PENDING" && <View style={styles.demoRow}><Pressable style={styles.demo} onPress={() => updateLeave(leave.id, "APPROVED")}><Text style={styles.demoText}>APPROVE</Text></Pressable><Pressable style={styles.demo} onPress={() => updateLeave(leave.id, "REJECTED")}><Text style={styles.demoText}>REJECT</Text></Pressable></View>}
                   {(user.role === "ADMIN" || (leave.requesterEmail === user.email && leave.status === "PENDING")) && <Pressable style={styles.outlineButton} onPress={() => deleteLeave(leave.id)}><Text style={styles.outlineText}>Delete request</Text></Pressable>}
                 </View>;

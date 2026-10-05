@@ -95,7 +95,7 @@ public class LeaveApplicationController {
           HttpStatus.FORBIDDEN, "Only admins can review staff leave; teachers may review student leave");
     }
     application.setReviewerRemark(request.remark());
-    application.setStatus(request.status());
+    application.setStatus(request.status(), user);
     notifications.save(
         new Notification(
             application.getRequester(),

@@ -39,6 +39,7 @@ public class SchoolEventController {
                 request.description(),
                 request.eventDate(),
                 request.location(),
+                request.holiday(),
                 user)));
   }
 
@@ -47,7 +48,8 @@ public class SchoolEventController {
   public SchoolEventView update(
       @PathVariable Long id, @Valid @RequestBody SchoolEventRequest request) {
     SchoolEvent event = findEvent(id);
-    event.update(request.title(), request.description(), request.eventDate(), request.location());
+    event.update(
+        request.title(), request.description(), request.eventDate(), request.location(), request.holiday());
     return SchoolEventView.from(event);
   }
 

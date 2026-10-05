@@ -18,7 +18,8 @@ public record LeaveApplicationView(
     LeaveStatus status,
     Instant createdAt,
     String reviewerRemark,
-    Instant reviewedAt) {
+    Instant reviewedAt,
+    String reviewerName) {
   public static LeaveApplicationView from(LeaveApplication application) {
     Student student = application.getStudent();
     return new LeaveApplicationView(
@@ -33,6 +34,7 @@ public record LeaveApplicationView(
         application.getStatus(),
         application.getCreatedAt(),
         application.getReviewerRemark(),
-        application.getReviewedAt());
+        application.getReviewedAt(),
+        application.getReviewerName());
   }
 }
