@@ -32,6 +32,7 @@ import {
   restoreToken,
   Student,
   SchoolEvent,
+  TimetableEntry,
   User,
 } from "./src/api";
 
@@ -47,7 +48,8 @@ type Tab =
   | "Messages"
   | "Events"
   | "Leave"
-  | "Bus Tracking";
+  | "Bus Tracking"
+  | "Timetable";
 const IS_DEVELOPMENT_BUILD =
   process.env.EXPO_PUBLIC_APP_ENV === "development" ||
   Constants.expoConfig?.extra?.environment === "development";
@@ -122,9 +124,9 @@ const festivalEventsForYear = (year: number): SchoolEvent[] =>
     holiday: true,
   }));
 const demos = [
-  { role: "ADMIN", email: "admin@schooldemo.com", password: "Admin@123" },
-  { role: "TEACHER", email: "teacher@schooldemo.com", password: "Teacher@123" },
-  { role: "PARENT", email: "parent@schooldemo.com", password: "Parent@123" },
+  { role: "ADMIN", email: "admin@northstar.local", password: "Admin@123" },
+  { role: "TEACHER", email: "teacher@northstar.local", password: "Teacher@123" },
+  { role: "PARENT", email: "parent@northstar.local", password: "Parent@123" },
 ];
 export default function App() {
   return (
@@ -137,10 +139,12 @@ export default function App() {
 function AppContent() {
   const [user, setUser] = useState<User | null>(null),
     [tab, setTab] = useState<Tab>("Home"),
-    [email, setEmail] = useState(IS_DEVELOPMENT_BUILD ? "admin@schooldemo.com" : ""),
+    [email, setEmail] = useState(IS_DEVELOPMENT_BUILD ? "admin@northstar.local" : ""),
     [password, setPassword] = useState(IS_DEVELOPMENT_BUILD ? "Admin@123" : ""),
     [students, setStudents] = useState<Student[]>([]),
+    [selectedChildId, setSelectedChildId] = useState<number | null>(null),
     [busRoutes, setBusRoutes] = useState<BusRoute[]>([]),
+    [timetable, setTimetable] = useState<TimetableEntry[]>([]),
     [busError, setBusError] = useState(""),
     [selectedBusId, setSelectedBusId] = useState<number | null>(null),
     [homework, setHomework] = useState<Homework[]>([]),
@@ -155,13 +159,14 @@ function AppContent() {
     ),
     [leaveApplications, setLeaveApplications] = useState<LeaveApplication[]>([]),
     [leaveStudentId, setLeaveStudentId] = useState(""),
+    [leaveReviewerRemark, setLeaveReviewerRemark] = useState(""),
     [leaveStart, setLeaveStart] = useState(""),
     [leaveEnd, setLeaveEnd] = useState(""),
     [leaveReason, setLeaveReason] = useState(""),
     [attendanceRecords, setAttendanceRecords] = useState<
       Record<number, AttendanceRecord[]>
     >({}),
-    [recipient, setRecipient] = useState("teacher@schooldemo.com"),
+    [recipient, setRecipient] = useState("teacher@northstar.local"),
     [subjectLine, setSubjectLine] = useState(""),
     [messageBody, setMessageBody] = useState(""),
     [messageComposerOpen, setMessageComposerOpen] = useState(false),
@@ -189,7 +194,7 @@ function AppContent() {
     if (!user) return;
     setError("");
     try {
-      const [s, h, n, r, f, m, ev, lv] = await Promise.all([
+      const [s, h, n, r, f, m, ev, lv, tt] = await Promise.all([
         api<Student[]>("/students"),
         api<Homework[]>("/homework"),
         api<Note[]>("/notifications"),
@@ -198,8 +203,10 @@ function AppContent() {
         api<Message[]>("/messages"),
         api<SchoolEvent[]>("/events"),
         api<LeaveApplication[]>("/leave-requests"),
+        api<TimetableEntry[]>("/timetable"),
       ]);
       setStudents(s);
+      setSelectedChildId((current) => current && s.some((student) => student.id === current) ? current : s[0]?.id ?? null);
       setHomework(h);
       setNotes(n);
       setResults(r);
@@ -207,6 +214,7 @@ function AppContent() {
       setMessages(m);
       setEvents(ev);
       setLeaveApplications(lv);
+      setTimetable(tt);
       if (user.role === "PARENT") {
         const histories = await Promise.all(
           s.map((student) =>
@@ -356,10 +364,10 @@ function AppContent() {
   function navigateFromAssistant(destination: Tab) {
     const availableTabs =
       user?.role === "TEACHER"
-        ? (["Home", "Attendance", "Homework", "Events", "Leave", "Bus Tracking", "Updates", "Profile"] as Tab[])
+        ? (["Home", "Attendance", "Homework", "Events", "Timetable", "Leave", "Bus Tracking", "Updates", "Profile"] as Tab[])
         : user?.role === "ADMIN"
-          ? (["Home", "Students", "Attendance", "Events", "Leave", "Bus Tracking", "Updates", "Profile"] as Tab[])
-          : (["Home", "Students", "Homework", "Events", "Leave", "Bus Tracking", "Updates", "Profile"] as Tab[]);
+          ? (["Home", "Students", "Attendance", "Events", "Timetable", "Leave", "Bus Tracking", "Updates", "Profile"] as Tab[])
+          : (["Home", "Students", "Homework", "Events", "Timetable", "Leave", "Bus Tracking", "Updates", "Profile"] as Tab[]);
     if (!availableTabs.includes(destination)) {
       return `The ${destination} section is not available for your account.`;
     }
@@ -375,6 +383,7 @@ function AppContent() {
       [/\b(student|students|children|directory)\b/, "Students"],
       [/\b(homework|assignment|assignments)\b/, "Homework"],
       [/\b(event|events|calendar)\b/, "Events"],
+      [/\b(timetable|schedule|schedules)\b/, "Timetable"],
       [/\b(leave|vacation)\b/, "Leave"],
       [/\b(bus|track|tracking|route)\b/, "Bus Tracking"],
       [/\b(notification|notifications|update|updates)\b/, "Updates"],
@@ -460,7 +469,7 @@ function AppContent() {
     } catch (e) { const message = e instanceof Error ? e.message : "Could not submit leave request"; setError(message); notify(message, true); }
   }
   async function updateLeave(id: number, status: "APPROVED" | "REJECTED") {
-    try { await api(`/leave-requests/${id}/status`, { method: "PATCH", body: JSON.stringify({ status }) }); setError(""); notify(`Leave request ${status.toLowerCase()}.`); await load(); }
+    try { await api(`/leave-requests/${id}/status`, { method: "PATCH", body: JSON.stringify({ status, remark: leaveReviewerRemark }) }); setLeaveReviewerRemark(""); setError(""); notify(`Leave request ${status.toLowerCase()}.`); await load(); }
     catch (e) { const message = e instanceof Error ? e.message : "Could not update leave request"; setError(message); notify(message, true); }
   }
   async function deleteLeave(id: number) {
@@ -530,10 +539,23 @@ function AppContent() {
     );
   const tabs: Tab[] =
       user.role === "TEACHER"
-      ? ["Home", "Attendance", "Homework", "Events", "Leave", "Bus Tracking", "Updates", "Profile"]
+      ? ["Home", "Attendance", "Homework", "Events", "Timetable", "Leave", "Bus Tracking", "Updates", "Profile"]
       : user.role === "ADMIN"
-        ? ["Home", "Students", "Attendance", "Events", "Leave", "Bus Tracking", "Updates", "Profile"]
-        : ["Home", "Students", "Attendance", "Homework", "Results", "Fees", "Messages", "Events", "Leave", "Bus Tracking", "Updates", "Profile"];
+        ? ["Home", "Students", "Attendance", "Events", "Timetable", "Leave", "Bus Tracking", "Updates", "Profile"]
+        : ["Home", "Students", "Attendance", "Homework", "Results", "Fees", "Messages", "Events", "Timetable", "Leave", "Bus Tracking", "Updates", "Profile"];
+  const selectedChild = students.find((student) => student.id === selectedChildId) ?? null;
+  const visibleStudents = user.role === "PARENT" && selectedChild ? [selectedChild] : students;
+  const visibleHomework = user.role === "PARENT" && selectedChild
+    ? homework.filter((item) => item.className === selectedChild.className && (!item.division || item.division === selectedChild.division))
+    : homework;
+  const visibleResults = user.role === "PARENT" && selectedChild ? results.filter((item) => item.studentId === selectedChild.id) : results;
+  const visibleFees = user.role === "PARENT" && selectedChild ? fees.filter((item) => item.studentId === selectedChild.id) : fees;
+  const visibleTimetable = user.role === "PARENT" && selectedChild
+    ? timetable.filter((row) => row.className === selectedChild.className && row.division === selectedChild.division)
+    : timetable;
+  const visibleBusRoutes = user.role === "PARENT" && selectedChild
+    ? busRoutes.filter((route) => route.id === selectedChild.busRouteId)
+    : busRoutes;
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar barStyle="dark-content" />
@@ -589,13 +611,14 @@ function AppContent() {
                 )}
               </View>
             </Section>
-            <Section title="Your students">
-              {students.slice(0, 3).map((s) => (
+            <Section title={user.role === "PARENT" ? "Choose a child" : "Your students"}>
+              {user.role === "PARENT" && <View style={styles.optionList}>{students.map((student) => <Pressable key={student.id} style={[styles.option, selectedChildId === student.id && styles.optionSelected]} onPress={() => setSelectedChildId(student.id)}><Text style={styles.optionText}>{student.firstName} {student.lastName} · {student.className}-{student.division}</Text></Pressable>)}</View>}
+              {user.role !== "PARENT" && students.slice(0, 3).map((s) => (
                 <StudentCard key={s.id} s={s} />
               ))}
             </Section>
             <Section title="Upcoming homework">
-              {homework.slice(0, 3).map((h) => (
+              {visibleHomework.slice(0, 3).map((h) => (
                 <HomeCard key={h.id} h={h} />
               ))}
             </Section>
@@ -612,14 +635,14 @@ function AppContent() {
               user.role === "PARENT" ? "Your children" : "Student directory"
             }
           >
-            {students.map((s) => (
+            {visibleStudents.map((s) => (
               <StudentCard key={s.id} s={s} />
             ))}
           </Section>
         )}
         {tab === "Homework" && (
           <Section title="Assignments">
-            {homework.map((h) => (
+            {visibleHomework.map((h) => (
               <HomeCard key={h.id} h={h} />
             ))}
           </Section>
@@ -633,7 +656,7 @@ function AppContent() {
         )}
         {tab === "Results" && (
           <Section title="Exam results">
-            {results.map((r) => (
+            {visibleResults.map((r) => (
               <View key={r.id} style={styles.card}>
                 <Text style={styles.cardTitle}>
                   {r.studentName} · {r.subject}
@@ -650,7 +673,7 @@ function AppContent() {
         )}
         {tab === "Fees" && (
           <Section title="Fee records">
-            {fees.map((f) => (
+            {visibleFees.map((f) => (
               <View key={f.id} style={styles.card}>
                 <Text style={styles.cardTitle}>
                   {f.studentName} · {f.description}
@@ -679,6 +702,7 @@ function AppContent() {
             ))}
           </Section>
         )}
+        {tab === "Timetable" && <Section title="Class timetable">{["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"].map(day => { const rows = visibleTimetable.filter(row => row.dayOfWeek === day); return rows.length ? <View key={day}><Text style={styles.sectionTitle}>{day}</Text>{rows.map(row => <View key={row.id} style={styles.card}><Text style={styles.cardTitle}>{row.startTime}–{row.endTime} · {row.subject}</Text><Text style={styles.cardText}>Class {row.className}-{row.division} · {row.teacherName}{row.room ? ` · ${row.room}` : ""}</Text></View>)}</View> : null; })}{visibleTimetable.length === 0 && <Text style={styles.muted}>No timetable has been published yet.</Text>}</Section>}
         {tab === "Events" && (
           <>
             <Section title="Yearly school calendar">
@@ -749,7 +773,7 @@ function AppContent() {
         )}
         {tab === "Bus Tracking" && (
           <BusTracking
-            routes={busRoutes}
+            routes={visibleBusRoutes}
             selectedBusId={selectedBusId}
             onSelect={setSelectedBusId}
             error={busError}
@@ -774,6 +798,9 @@ function AppContent() {
                   {leave.studentId !== null && <Text style={styles.cardText}>Requested by {leave.requesterName} ({leave.requesterEmail})</Text>}
                   <Text style={styles.cardText}>{leave.startDate} to {leave.endDate}</Text>
                   <Text style={styles.cardText}>{leave.reason}</Text>
+                  {leave.reviewedAt && <Text style={styles.role}>Reviewed {new Date(leave.reviewedAt).toLocaleDateString()} · {leave.reviewerRemark || "No review note"}</Text>}
+                  {canReview && leave.status === "PENDING" && <TextInput style={styles.input} value={leaveReviewerRemark} onChangeText={setLeaveReviewerRemark} placeholder="Optional review note" />}
+                  {leave.reviewedAt && <Text style={styles.role}>Reviewed {new Date(leave.reviewedAt).toLocaleDateString()} · {leave.reviewerRemark || "No review note"}</Text>}
                   {canReview && leave.status === "PENDING" && <View style={styles.demoRow}><Pressable style={styles.demo} onPress={() => updateLeave(leave.id, "APPROVED")}><Text style={styles.demoText}>APPROVE</Text></Pressable><Pressable style={styles.demo} onPress={() => updateLeave(leave.id, "REJECTED")}><Text style={styles.demoText}>REJECT</Text></Pressable></View>}
                   {(user.role === "ADMIN" || (leave.requesterEmail === user.email && leave.status === "PENDING")) && <Pressable style={styles.outlineButton} onPress={() => deleteLeave(leave.id)}><Text style={styles.outlineText}>Delete request</Text></Pressable>}
                 </View>;
@@ -841,7 +868,7 @@ function AppContent() {
             </Section>
           ) : (
             <Section title="Attendance history">
-              {students.map((s) => (
+              {visibleStudents.map((s) => (
                 <AttendanceCard
                   key={s.id}
                   student={s}
@@ -1161,7 +1188,7 @@ function HomeCard({ h }: { h: Homework }) {
       <Text style={styles.cardTitle}>{h.title}</Text>
       <Text style={styles.cardText}>{h.description}</Text>
       <Text style={styles.role}>
-        {h.subject} · Class {h.className} · Due {h.dueDate}
+        {h.subject} · Class {h.className}{h.division ? `-${h.division}` : " · all divisions"} · Due {h.dueDate}
       </Text>
     </View>
   );

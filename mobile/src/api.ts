@@ -36,6 +36,7 @@ export type Student = {
   lastName: string;
   className: string;
   division: string;
+  busRouteId: number | null;
   rollNumber: number;
   status: string;
 };
@@ -51,6 +52,7 @@ export type Homework = {
   title: string;
   description: string;
   className: string;
+  division: string | null;
   subject: string;
   dueDate: string;
   teacherName: string;
@@ -114,6 +116,21 @@ export type LeaveApplication = {
   reason: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
   createdAt: string;
+  reviewerRemark: string | null;
+  reviewedAt: string | null;
+};
+export type TimetableEntry = {
+  id: number;
+  academicYear: string;
+  className: string;
+  division: string;
+  dayOfWeek: string;
+  subject: string;
+  teacherId: number;
+  teacherName: string;
+  room: string;
+  startTime: string;
+  endTime: string;
 };
 
 export class ApiError extends Error {

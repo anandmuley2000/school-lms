@@ -1,5 +1,7 @@
-# Deployment documentation
+# Deployment
 
-For the requested Render deployment while keeping MySQL, use [DEPLOYMENT-RENDER.md](DEPLOYMENT-RENDER.md).
+The supported production target for the current project is Railway with an external MySQL 8 database. Follow [DEPLOYMENT-RAILWAY.md](DEPLOYMENT-RAILWAY.md) for the service setup and exact environment variables. Production startup validates the schema and does not seed demo data.
 
-The older Railway setup in the README is retained only as a legacy reference. Its environment variable names and deployment flow do not apply to Render.
+Apply the numbered SQL files in `backend/schema/migrations` to a verified database backup before deploying schema changes. The current API uses Hibernate `ddl-auto=validate`; it will fail fast if the migration was missed.
+
+For a mobile release, build from `mobile/` with `APP_ENV=production`, `EXPO_PUBLIC_API_BASE_URL=https://YOUR_API_HOST/api`, and a production Android signing key supplied through local Gradle properties or CI secrets. Never commit signing keys or database/JWT credentials.

@@ -7,5 +7,6 @@ public record HomeworkRequest(
     @NotBlank String title,
     String description,
     @NotBlank String className,
+    @NotBlank String division,
     String subject,
     LocalDate dueDate) {}

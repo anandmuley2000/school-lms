@@ -12,4 +12,10 @@ public record StudentRequest(
     @NotBlank @Email String parentEmail,
     String phone,
     String address,
-    String status) {}
+    String status,
+    Long busRouteId) {
+  public StudentRequest(String studentCode, String firstName, String lastName, String className,
+      String division, int rollNumber, String parentEmail, String phone, String address, String status) {
+    this(studentCode, firstName, lastName, className, division, rollNumber, parentEmail, phone, address, status, null);
+  }
+}

@@ -38,6 +38,11 @@ public class LeaveApplication {
   @Column(nullable = false)
   private Instant createdAt = Instant.now();
 
+  @Column(length = 2000)
+  private String reviewerRemark;
+
+  private Instant reviewedAt;
+
   protected LeaveApplication() {}
 
   public LeaveApplication(
@@ -55,6 +60,11 @@ public class LeaveApplication {
 
   public void setStatus(LeaveStatus status) {
     this.status = status;
+    this.reviewedAt = Instant.now();
+  }
+
+  public void setReviewerRemark(String reviewerRemark) {
+    this.reviewerRemark = reviewerRemark == null || reviewerRemark.isBlank() ? null : reviewerRemark.trim();
   }
 
   public Long getId() {
@@ -87,5 +97,13 @@ public class LeaveApplication {
 
   public Instant getCreatedAt() {
     return createdAt;
+  }
+
+  public String getReviewerRemark() {
+    return reviewerRemark;
+  }
+
+  public Instant getReviewedAt() {
+    return reviewedAt;
   }
 }

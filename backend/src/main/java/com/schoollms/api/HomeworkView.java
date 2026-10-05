@@ -8,6 +8,7 @@ public record HomeworkView(
     String title,
     String description,
     String className,
+    String division,
     String subject,
     LocalDate dueDate,
     String teacherName) {
@@ -17,6 +18,7 @@ public record HomeworkView(
         h.getTitle(),
         h.getDescription(),
         h.getClassName(),
+        h.getDivision(),
         h.getSubject(),
         h.getDueDate(),
         h.getTeacherName());

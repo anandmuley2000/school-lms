@@ -68,6 +68,9 @@ public class AccountController {
             .findById(id)
             .orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+    if (a.getRole() == Role.ADMIN && r.role() != Role.ADMIN && accounts.countByRole(Role.ADMIN) <= 1)
+      throw new ResponseStatusException(
+          HttpStatus.CONFLICT, "At least one administrator must remain");
     if (!a.getEmail().equalsIgnoreCase(r.email()))
       throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email cannot be changed");
     a.updateProfile(r.name(), r.phone(), r.role());

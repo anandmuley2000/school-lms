@@ -1,8 +1,7 @@
 package com.schoollms.api;
 
 import com.schoollms.repository.*;
-import java.util.List;
-import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.DefaultApplicationArguments;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -15,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 @Profile("development")
 @ConditionalOnProperty(name = "app.demo.reset-enabled", havingValue = "true")
 public class DemoResetController {
-  private final List<CommandLineRunner> seeders;
+  private final com.schoollms.config.DemoAccountInitializer demoInitializer;
   private final NotificationRepository notifications;
   private final MessageRepository messages;
   private final AttendanceRepository attendance;
@@ -30,7 +29,7 @@ public class DemoResetController {
   private final BusRouteRepository busRoutes;
 
   public DemoResetController(
-      List<CommandLineRunner> seeders,
+      com.schoollms.config.DemoAccountInitializer demoInitializer,
       NotificationRepository notifications,
       MessageRepository messages,
       AttendanceRepository attendance,
@@ -43,7 +42,7 @@ public class DemoResetController {
       SchoolEventRepository events,
       LeaveApplicationRepository leaveApplications,
       BusRouteRepository busRoutes) {
-    this.seeders = seeders;
+    this.demoInitializer = demoInitializer;
     this.notifications = notifications;
     this.messages = messages;
     this.attendance = attendance;
@@ -73,7 +72,7 @@ public class DemoResetController {
     teacherClasses.deleteAllInBatch();
     students.deleteAllInBatch();
     accounts.deleteAllInBatch();
-    for (CommandLineRunner seeder : seeders) seeder.run();
+    demoInitializer.run(new DefaultApplicationArguments(new String[0]));
     return java.util.Map.of("message", "Demo data has been restored");
   }
 }

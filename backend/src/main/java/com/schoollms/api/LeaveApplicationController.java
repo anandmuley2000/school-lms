@@ -18,14 +18,17 @@ public class LeaveApplicationController {
   private final LeaveApplicationRepository applications;
   private final StudentRepository students;
   private final NotificationRepository notifications;
+  private final TeacherClassRepository teacherClasses;
 
   public LeaveApplicationController(
       LeaveApplicationRepository applications,
       StudentRepository students,
-      NotificationRepository notifications) {
+      NotificationRepository notifications,
+      TeacherClassRepository teacherClasses) {
     this.applications = applications;
     this.students = students;
     this.notifications = notifications;
+    this.teacherClasses = teacherClasses;
   }
 
   @GetMapping
@@ -33,8 +36,8 @@ public class LeaveApplicationController {
     List<LeaveApplication> rows = applications.findAllByOrderByCreatedAtDesc();
     if (user.getRole() == Role.TEACHER) {
       rows = rows.stream()
-          .filter(application -> application.getStudent() != null
-              || application.getRequester().getId().equals(user.getId()))
+          .filter(application -> application.getRequester().getId().equals(user.getId())
+              || isAssignedStudentLeave(application, user))
           .toList();
     } else if (user.getRole() != Role.ADMIN) {
       rows = applications.findByRequester_EmailOrderByCreatedAtDesc(user.getEmail());
@@ -85,12 +88,13 @@ public class LeaveApplicationController {
       @AuthenticationPrincipal Account user) {
     LeaveApplication application = findApplication(id);
     boolean isAdmin = user.getRole() == Role.ADMIN;
-    boolean isTeacherReviewingStudentLeave =
-        user.getRole() == Role.TEACHER && application.getStudent() != null;
+    boolean isTeacherReviewingStudentLeave = user.getRole() == Role.TEACHER
+        && isAssignedStudentLeave(application, user);
     if (!isAdmin && !isTeacherReviewingStudentLeave) {
       throw new ResponseStatusException(
           HttpStatus.FORBIDDEN, "Only admins can review staff leave; teachers may review student leave");
     }
+    application.setReviewerRemark(request.remark());
     application.setStatus(request.status());
     notifications.save(
         new Notification(
@@ -150,6 +154,13 @@ public class LeaveApplicationController {
           HttpStatus.FORBIDDEN, "You can only request leave for your linked student account");
     }
     return student;
+  }
+
+  private boolean isAssignedStudentLeave(LeaveApplication application, Account teacher) {
+    Student student = application.getStudent();
+    return student != null
+        && teacherClasses.existsByTeacher_EmailAndClassNameAndDivision(
+            teacher.getEmail(), student.getClassName(), student.getDivision());
   }
 
   private void validateDateRange(LeaveApplicationRequest request) {

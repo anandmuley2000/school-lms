@@ -8,6 +8,7 @@ import {
   Fee,
   Homework,
   LeaveApplication,
+  TimetableEntry,
   Message,
   Note,
   Result,
@@ -30,7 +31,8 @@ type Page =
   | "People"
   | "Events"
   | "Leave"
-  | "Bus Tracking";
+  | "Bus Tracking"
+  | "Timetable";
 const nav: Page[] = [
   "Overview",
   "Students",
@@ -44,6 +46,7 @@ const nav: Page[] = [
   "Events",
   "Leave",
   "Bus Tracking",
+  "Timetable",
 ];
 const pageIconPaths: Record<Page, string> = {
   Overview: "M3 10.5 12 3l9 7.5V21h-6v-7H9v7H3z",
@@ -58,6 +61,7 @@ const pageIconPaths: Record<Page, string> = {
   Events: "M4 5h16v16H4zM8 3v4m8-4v4M4 10h16",
   Leave: "M4 4h16v16H4zM4 7l8 6 8-6",
   "Bus Tracking": "M4 16V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10M4 11h16M7 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4m10 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4M4 16h16",
+  Timetable: "M4 5h16v16H4zM8 3v4m8-4v4M4 10h16M8 14h2m4 0h2m-8 4h2m4 0h2",
 };
 function PageIcon({ page }: { page: Page }) {
   return <svg viewBox="0 0 24 24" aria-hidden="true" className="app-icon"><path d={pageIconPaths[page]} /></svg>;
@@ -80,6 +84,7 @@ export default function App() {
     [events, setEvents] = useState<SchoolEvent[]>([]),
     [leaveRequests, setLeaveRequests] = useState<LeaveApplication[]>([]),
     [busRoutes, setBusRoutes] = useState<BusRoute[]>([]),
+    [timetable, setTimetable] = useState<TimetableEntry[]>([]),
     [summary, setSummary] = useState<Record<string, number>>({}),
     [query, setQuery] = useState(""),
     [busy, setBusy] = useState(false),
@@ -99,6 +104,7 @@ export default function App() {
     setEvents([]);
     setLeaveRequests([]);
     setBusRoutes([]);
+    setTimetable([]);
     setSummary({});
     setQuery("");
     setEdit(null);
@@ -120,6 +126,7 @@ export default function App() {
         api<SchoolEvent[]>("/events").then(setEvents),
         api<LeaveApplication[]>("/leave-requests").then(setLeaveRequests),
         api<BusRoute[]>("/bus-routes").then(setBusRoutes),
+        api<TimetableEntry[]>("/timetable").then(setTimetable),
       ];
       if (user.role === "ADMIN")
         tasks.push(
@@ -295,6 +302,7 @@ export default function App() {
                     status: "ACTIVE",
                     parentName: "",
                     parentEmail: "",
+                    busRouteId: null,
                   })
                 }
               >
@@ -505,6 +513,7 @@ export default function App() {
               }
             />
           )}
+          {page === "Timetable" && <TimetablePage user={user} items={timetable} accounts={accounts} students={students} onSaved={async () => { await reload(); setToast("Timetable updated."); }} />}
           {page === "Notifications" && (
             <div className="list-card">
               <div className="table-head">
@@ -577,13 +586,14 @@ export default function App() {
       {edit && (
         <StudentEditor
           student={edit}
+          busRoutes={busRoutes}
           onClose={() => setEdit(null)}
           onSaved={async () => {
             setEdit(null);
             await reload();
             setToast(
               edit.id === 0
-                ? "Student and login account created. Share the initial password securely."
+                ? "Student record created."
                 : "Student record updated.",
             );
           }}
@@ -754,6 +764,15 @@ function LeavePage({
   const [busy, setBusy] = useState(false);
   const isAdmin = user.role === "ADMIN";
   const canRequest = ["ADMIN", "TEACHER", "PARENT"].includes(user.role);
+  const [leaveQuery, setLeaveQuery] = useState("");
+  const [leaveStatus, setLeaveStatus] = useState("ALL");
+  const [leavePage, setLeavePage] = useState(0);
+  const matchedLeaves = items.filter((item) => {
+    const matchesQuery = `${item.requesterName} ${item.requesterEmail} ${item.studentName ?? ""} ${item.reason}`.toLowerCase().includes(leaveQuery.toLowerCase());
+    return matchesQuery && (leaveStatus === "ALL" || item.status === leaveStatus);
+  });
+  const pageSize = 10;
+  const pagedLeaves = matchedLeaves.slice(leavePage * pageSize, (leavePage + 1) * pageSize);
 
   async function save(event: React.FormEvent) {
     event.preventDefault();
@@ -781,9 +800,11 @@ function LeavePage({
   async function updateStatus(item: LeaveApplication, status: "APPROVED" | "REJECTED") {
     setError("");
     try {
+      const remark = window.prompt("Review note (optional)", item.reviewerRemark ?? "");
+      if (remark === null) return;
       await api(`/leave-requests/${item.id}/status`, {
         method: "PATCH",
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, remark }),
       });
       await onSaved();
     } catch (statusError) {
@@ -872,8 +893,9 @@ function LeavePage({
         </form>
       )}
       {error && !canRequest && <div className="error-banner">{error}</div>}
+      <div className="form-grid"><label>Search requests<input value={leaveQuery} onChange={(event) => { setLeaveQuery(event.target.value); setLeavePage(0); }} placeholder="Name, email, reason" /></label><label>Status<select value={leaveStatus} onChange={(event) => { setLeaveStatus(event.target.value); setLeavePage(0); }}><option value="ALL">All statuses</option><option value="PENDING">Pending</option><option value="APPROVED">Approved</option><option value="REJECTED">Rejected</option></select></label></div>
       <div className="record-list">
-        {items.map((item) => {
+        {pagedLeaves.map((item) => {
           const isOwner = item.requesterEmail === user.email;
           const pending = item.status === "PENDING";
           const canReview = isAdmin || (user.role === "TEACHER" && item.studentId !== null);
@@ -886,6 +908,7 @@ function LeavePage({
                 <small>
                   {item.startDate} – {item.endDate} · Requested by {item.requesterName}
                 </small>
+                {item.reviewedAt && <p><small>Reviewed {new Date(item.reviewedAt).toLocaleString()} · {item.reviewerRemark || "No review note"}</small></p>}
               </div>
               <div className="record-actions">
                 {canReview && pending && (
@@ -921,8 +944,9 @@ function LeavePage({
             </article>
           );
         })}
-        {items.length === 0 && <div className="empty">No leave requests yet.</div>}
+        {matchedLeaves.length === 0 && <div className="empty">No leave requests match these filters.</div>}
       </div>
+      {matchedLeaves.length > pageSize && <div className="modal-actions"><button className="secondary" disabled={leavePage === 0} onClick={() => setLeavePage((page) => Math.max(0, page - 1))}>Previous</button><span>Page {leavePage + 1} of {Math.ceil(matchedLeaves.length / pageSize)}</span><button className="secondary" disabled={(leavePage + 1) * pageSize >= matchedLeaves.length} onClick={() => setLeavePage((page) => page + 1)}>Next</button></div>}
     </div>
   );
 }
@@ -936,7 +960,7 @@ function Login({
   busy: boolean;
   error: string;
 }) {
-  const [email, setEmail] = useState(import.meta.env.DEV ? "admin@schooldemo.com" : ""),
+  const [email, setEmail] = useState(import.meta.env.DEV ? "admin@northstar.local" : ""),
     [password, setPassword] = useState(import.meta.env.DEV ? "Admin@123" : "");
   return (
     <main className="login-page">
@@ -1226,7 +1250,7 @@ function Overview({
               <div>
                 <strong>{h.title}</strong>
                 <small>
-                  {h.subject} · Class {h.className}
+                  {h.subject} · Class {h.className}{h.division ? `-${h.division}` : " · all divisions"}
                 </small>
               </div>
               <span>{h.dueDate}</span>
@@ -1390,6 +1414,15 @@ function Attendance({
     </div>
   );
 }
+function TimetablePage({ user, items, accounts, students, onSaved }: { user: User; items: TimetableEntry[]; accounts: Account[]; students: Student[]; onSaved: () => void }) {
+  const [editingId, setEditingId] = useState<number | null>(null), [className, setClassName] = useState("1"), [division, setDivision] = useState("A"), [dayOfWeek, setDay] = useState("MONDAY"), [subject, setSubject] = useState("Mathematics"), [teacherId, setTeacher] = useState(""), [room, setRoom] = useState("Room 1"), [startTime, setStart] = useState("09:00"), [endTime, setEnd] = useState("09:45"), [error, setError] = useState("");
+  const teachers = accounts.filter((a) => a.role === "TEACHER");
+  const divisions = Array.from(new Set(students.filter((s) => s.className === className).map((s) => s.division)));
+  async function save(e: React.FormEvent) { e.preventDefault(); setError(""); try { const payload = { academicYear: `${new Date().getFullYear()}-${new Date().getFullYear()+1}`, className, division, dayOfWeek, subject, teacherId: Number(teacherId), room, startTime, endTime }; await api(editingId ? `/timetable/${editingId}` : "/timetable", { method: editingId ? "PUT" : "POST", body: JSON.stringify(payload) }); setEditingId(null); onSaved(); } catch (e) { setError(e instanceof Error ? e.message : "Could not save timetable"); } }
+  function edit(row: TimetableEntry) { setEditingId(row.id); setClassName(row.className); setDivision(row.division); setDay(row.dayOfWeek); setSubject(row.subject); setTeacher(String(row.teacherId)); setRoom(row.room); setStart(row.startTime); setEnd(row.endTime); }
+  return <div className="homework-layout">{user.role === "ADMIN" && <form className="panel form-panel" onSubmit={save}><h2>{editingId ? "Edit timetable period" : "Add timetable period"}</h2><div className="form-grid"><label>Class<input value={className} onChange={e=>setClassName(e.target.value)} required /></label><label>Division<select value={division} onChange={e=>setDivision(e.target.value)}>{(divisions.includes(division) ? divisions : [division, ...divisions]).map(x=><option key={x}>{x}</option>)}</select></label><label>Day<select value={dayOfWeek} onChange={e=>setDay(e.target.value)}>{["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"].map(x=><option key={x}>{x}</option>)}</select></label><label>Subject<input value={subject} onChange={e=>setSubject(e.target.value)} required /></label><label>Teacher<select value={teacherId} onChange={e=>setTeacher(e.target.value)} required><option value="">Select teacher</option>{teachers.map(t=><option key={t.id} value={t.id}>{t.name}</option>)}</select></label><label>Room<input value={room} onChange={e=>setRoom(e.target.value)} /></label><label>Starts<input type="time" value={startTime} onChange={e=>setStart(e.target.value)} required /></label><label>Ends<input type="time" value={endTime} onChange={e=>setEnd(e.target.value)} required /></label></div>{error && <div className="form-error">{error}</div>}<button className="primary">{editingId ? "Save changes" : "Add period"}</button>{editingId && <button type="button" className="secondary" onClick={()=>setEditingId(null)}>Cancel edit</button>}</form>}<div className="panel assignments-panel"><h2>Class timetable</h2>{["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY","SUNDAY"].map(day=>{const rows=items.filter(i=>i.dayOfWeek===day); return rows.length ? <section key={day}><h3>{day}</h3>{rows.map(row=><article className="assignment" key={row.id}><strong>{row.startTime}–{row.endTime} · {row.subject}</strong><span>Class {row.className}-{row.division} · {row.teacherName}{row.room ? ` · ${row.room}` : ""}</span>{user.role==="ADMIN" && <><button className="text-action" onClick={()=>edit(row)}>Edit</button><button className="text-action" onClick={async()=>{await api(`/timetable/${row.id}`,{method:"DELETE"});onSaved();}}>Delete</button></>}</article>)}</section> : null;})}{items.length===0 && <div className="empty">No timetable has been published yet.</div>}</div></div>;
+}
+
 function HomeworkPage({
   user,
   items,
@@ -1405,6 +1438,7 @@ function HomeworkPage({
     [description, setDescription] = useState(""),
     [subject, setSubject] = useState("Mathematics"),
     [className, setClassName] = useState("6"),
+    [division, setDivision] = useState("A"),
     [dueDate, setDueDate] = useState(
       new Date(Date.now() + 4 * 86400000).toISOString().slice(0, 10),
     ),
@@ -1422,6 +1456,7 @@ function HomeworkPage({
           title,
           description,
           className,
+          division,
           subject,
           dueDate,
         }),
@@ -1439,12 +1474,13 @@ function HomeworkPage({
     () => Array.from(new Set(students.map((s) => s.className))),
     [students],
   );
+  const divisions = Array.from(new Set(students.filter((s) => s.className === className).map((s) => s.division)));
   return (
     <div className="homework-layout">
       {canCreate && (
         <form className="panel form-panel homework-form" onSubmit={create}>
           <h2>Publish homework</h2>
-          <p>Families in the selected class receive a notification.</p>
+          <p>Families in the selected class and division receive a notification.</p>
           <label>
             Assignment title
             <input
@@ -1477,6 +1513,7 @@ function HomeworkPage({
                 )}
               </select>
             </label>
+            <label>Division<select value={division} onChange={(e) => setDivision(e.target.value)}>{(divisions.length ? divisions : ["A"]).map((d) => <option key={d}>{d}</option>)}</select></label>
             <label>
               Subject
               <select
@@ -1526,7 +1563,7 @@ function HomeworkPage({
               <strong>{h.title}</strong>
               <p>{h.description}</p>
               <small>
-                {h.subject} · Class {h.className} · {h.teacherName}
+                {h.subject} · Class {h.className}-{h.division} · {h.teacherName}
               </small>
             </div>
             <div className="due">
@@ -1844,12 +1881,13 @@ function MessagesPage({
 }) {
   const [recipientEmail, setRecipientEmail] = useState(
       user.role === "PARENT"
-        ? "teacher@schooldemo.com"
-        : "parent@schooldemo.com",
+        ? "teacher@northstar.local"
+        : "parent@northstar.local",
     ),
     [subject, setSubject] = useState(""),
     [body, setBody] = useState(""),
     [error, setError] = useState("");
+  const [composerOpen, setComposerOpen] = useState(false);
   async function send(e: React.FormEvent) {
     e.preventDefault();
     setError("");
@@ -1860,6 +1898,7 @@ function MessagesPage({
       });
       setSubject("");
       setBody("");
+      setComposerOpen(false);
       onSaved("Message sent.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unable to send message");
@@ -1873,9 +1912,10 @@ function MessagesPage({
   }
   return (
     <div className="homework-layout">
-      <form className="panel form-panel" onSubmit={send}>
-        <h2>Send a message</h2>
-        <p>Contact a teacher or parent connected to your class.</p>
+      <div className="panel form-panel"><h2>School messages</h2><p>Send a private message to a permitted school contact.</p><button className="primary" onClick={() => setComposerOpen(true)}>SEND MESSAGE</button></div>
+      {composerOpen && <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) setComposerOpen(false); }}><form className="modal" onSubmit={send}>
+        <div className="modal-head"><div><div className="eyebrow">SCHOOL MESSAGES</div><h2>Send a message</h2></div><button type="button" className="close" onClick={() => setComposerOpen(false)}>×</button></div>
+        <p>Use the school email address of an authorized contact.</p>
         <label>
           Recipient email
           <input
@@ -1903,8 +1943,8 @@ function MessagesPage({
           />
         </label>
         {error && <div className="form-error">{error}</div>}
-        <button className="primary">Send message</button>
-      </form>
+        <div className="modal-actions"><button className="primary">Send message</button><button type="button" className="secondary" onClick={() => setComposerOpen(false)}>Cancel</button></div>
+      </form></div>}
       <div className="panel assignments-panel">
         <div className="panel-heading">
           <div>
@@ -2069,10 +2109,12 @@ function PeoplePage({
 }
 function StudentEditor({
   student,
+  busRoutes,
   onClose,
   onSaved,
 }: {
   student: Student;
+  busRoutes: BusRoute[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -2098,6 +2140,7 @@ function StudentEditor({
         phone: form.phone,
         address: form.address,
         status: form.status,
+        busRouteId: form.busRouteId,
       };
       await api(student.id ? `/students/${student.id}` : "/students", {
         method: student.id ? "PUT" : "POST",
@@ -2113,7 +2156,7 @@ function StudentEditor({
   async function remove() {
     if (
       !confirm(
-        `Delete ${form.firstName} ${form.lastName}? This cannot be undone.`,
+        `Archive ${form.firstName} ${form.lastName}? Academic history will be retained.`,
       )
     )
       return;
@@ -2202,7 +2245,7 @@ function StudentEditor({
               value={form.parentEmail || ""}
               required
               onChange={(e) => change("parentEmail", e.target.value)}
-              placeholder="parent@schooldemo.com"
+              placeholder="parent@northstar.local"
             />
           </label>
           <p className="wide family-link-note">Students use the linked parent account to access attendance, homework, results, fees, and school updates.</p>
@@ -2231,6 +2274,7 @@ function StudentEditor({
               ))}
             </select>
           </label>
+          <label className="wide">Bus route<select value={form.busRouteId ?? ""} onChange={(e) => setForm((f) => ({ ...f, busRouteId: e.target.value ? Number(e.target.value) : null }))}><option value="">No bus assigned</option>{busRoutes.map((route) => <option key={route.id} value={route.id}>{route.busNumber} · {route.routeName}</option>)}</select></label>
         </div>
         {error && <div className="form-error">{error}</div>}
         <div className="modal-actions">

@@ -14,6 +14,7 @@ import com.schoollms.domain.Student;
 import com.schoollms.repository.AccountRepository;
 import com.schoollms.repository.AttendanceRepository;
 import com.schoollms.repository.FeeRepository;
+import com.schoollms.repository.BusRouteRepository;
 import com.schoollms.repository.ResultRepository;
 import com.schoollms.repository.StudentRepository;
 import com.schoollms.repository.TeacherClassRepository;
@@ -37,7 +38,8 @@ class StudentAccountProvisioningTest {
             mock(TeacherClassRepository.class),
             mock(AttendanceRepository.class),
             mock(ResultRepository.class),
-            mock(FeeRepository.class));
+            mock(FeeRepository.class),
+            mock(BusRouteRepository.class));
 
     StudentView result =
         controller.create(

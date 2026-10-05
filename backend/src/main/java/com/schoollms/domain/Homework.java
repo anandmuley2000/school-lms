@@ -18,6 +18,8 @@ public class Homework {
   private String description;
 
   @NotBlank private String className;
+  @Column(name = "division")
+  private String division;
   private String subject;
   private LocalDate dueDate;
 
@@ -32,12 +34,14 @@ public class Homework {
       String title,
       String description,
       String className,
+      String division,
       String subject,
       LocalDate dueDate,
       Account teacher) {
     this.title = title;
     this.description = description;
     this.className = className;
+    this.division = division;
     this.subject = subject;
     this.dueDate = dueDate;
     this.teacher = teacher;
@@ -57,6 +61,10 @@ public class Homework {
 
   public String getClassName() {
     return className;
+  }
+
+  public String getDivision() {
+    return division;
   }
 
   public String getSubject() {

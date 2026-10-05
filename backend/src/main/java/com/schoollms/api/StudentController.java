@@ -21,6 +21,7 @@ public class StudentController {
   private final AttendanceRepository attendance;
   private final ResultRepository results;
   private final FeeRepository fees;
+  private final BusRouteRepository busRoutes;
 
   public StudentController(
       StudentRepository students,
@@ -28,13 +29,15 @@ public class StudentController {
       TeacherClassRepository teacherClasses,
       AttendanceRepository attendance,
       ResultRepository results,
-      FeeRepository fees) {
+      FeeRepository fees,
+      BusRouteRepository busRoutes) {
     this.students = students;
     this.accounts = accounts;
     this.teacherClasses = teacherClasses;
     this.attendance = attendance;
     this.results = results;
     this.fees = fees;
+    this.busRoutes = busRoutes;
   }
 
   @GetMapping
@@ -93,6 +96,7 @@ public class StudentController {
         r.phone(),
         r.address(),
         r.status() == null ? "ACTIVE" : r.status());
+    s.setBusRoute(busRoute(r.busRouteId()));
     return StudentView.from(students.save(s));
   }
 
@@ -117,6 +121,7 @@ public class StudentController {
         r.address(),
         r.status() == null ? s.getStatus() : r.status());
     s.setParent(parent(r.parentEmail()));
+    s.setBusRoute(busRoute(r.busRouteId()));
     return StudentView.from(students.save(s));
   }
 
@@ -124,12 +129,11 @@ public class StudentController {
   @PreAuthorize("hasRole('ADMIN')")
   @ResponseStatus(HttpStatus.NO_CONTENT)
   public void delete(@PathVariable Long id) {
-    if (!students.existsById(id))
-      throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found");
-    attendance.deleteByStudent_Id(id);
-    results.deleteByStudent_Id(id);
-    fees.deleteByStudent_Id(id);
-    students.deleteById(id);
+    Student student = students.findById(id).orElseThrow(() ->
+        new ResponseStatusException(HttpStatus.NOT_FOUND, "Student not found"));
+    student.update(student.getFirstName(), student.getLastName(), student.getClassName(),
+        student.getDivision(), student.getRollNumber(), student.getPhone(), student.getAddress(), "INACTIVE");
+    students.save(student);
   }
 
   private Account parent(String email) {
@@ -139,6 +143,12 @@ public class StudentController {
         .filter(a -> a.getRole() == Role.PARENT)
         .orElseThrow(
             () -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Parent account not found"));
+  }
+
+  private BusRoute busRoute(Long id) {
+    if (id == null) return null;
+    return busRoutes.findById(id).orElseThrow(() ->
+        new ResponseStatusException(HttpStatus.BAD_REQUEST, "Bus route not found"));
   }
 
   private boolean canAccess(Student s, Account user) {

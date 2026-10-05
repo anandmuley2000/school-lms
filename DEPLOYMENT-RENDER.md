@@ -1,3 +1,7 @@
+# Archived deployment notes: Render
+
+The active production target is Railway. Use [DEPLOYMENT-RAILWAY.md](DEPLOYMENT-RAILWAY.md) and the root [.env.example](.env.example) for current configuration. This file documents an earlier Render proposal and should not be used for new deployments.
+
 # Render deployment (MySQL stays MySQL)
 
 This guide deploys the existing React/Vite admin as a Render Static Site and the existing Spring Boot API as a Render Web Service. The API remains connected to MySQL 8 through `DB_*` environment variables. No production domain or database credentials are assumed here.

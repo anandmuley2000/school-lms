@@ -14,7 +14,8 @@ public record StudentView(
     String address,
     String status,
     String parentName,
-    String parentEmail) {
+    String parentEmail,
+    Long busRouteId) {
   public static StudentView from(Student s) {
     return new StudentView(
         s.getId(),
@@ -28,6 +29,7 @@ public record StudentView(
         s.getAddress(),
         s.getStatus(),
         s.getParent() == null ? null : s.getParent().getName(),
-        s.getParent() == null ? null : s.getParent().getEmail());
+        s.getParent() == null ? null : s.getParent().getEmail(),
+        s.getBusRoute() == null ? null : s.getBusRoute().getId());
   }
 }

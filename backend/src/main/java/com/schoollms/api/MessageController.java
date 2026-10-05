@@ -78,15 +78,13 @@ public class MessageController {
   }
 
   private boolean canMessage(Account from, Account to) {
-    if (from.getRole() == Role.ADMIN) return true;
+    if (from.getEmail().equalsIgnoreCase(to.getEmail())) return false;
+    if (from.getRole() == Role.ADMIN)
+      return to.getRole() == Role.TEACHER || to.getRole() == Role.PARENT;
+    if (to.getRole() == Role.ADMIN)
+      return from.getRole() == Role.TEACHER || from.getRole() == Role.PARENT;
     if (from.getRole() == Role.PARENT && to.getRole() == Role.TEACHER)
       return students.findByParent_EmailOrderByClassNameAscRollNumberAsc(from.getEmail()).stream()
-          .anyMatch(
-              s ->
-                  teacherClasses.existsByTeacher_EmailAndClassNameAndDivision(
-                      to.getEmail(), s.getClassName(), s.getDivision()));
-    if (from.getRole() == Role.STUDENT && to.getRole() == Role.TEACHER)
-      return students.findByStudentAccount_Email(from.getEmail()).stream()
           .anyMatch(
               s ->
                   teacherClasses.existsByTeacher_EmailAndClassNameAndDivision(

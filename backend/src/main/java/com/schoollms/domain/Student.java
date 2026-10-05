@@ -34,6 +34,10 @@ public class Student {
   @JoinColumn(name = "student_account_id")
   private Account studentAccount;
 
+  @ManyToOne(fetch = FetchType.LAZY)
+  @JoinColumn(name = "bus_route_id")
+  private BusRoute busRoute;
+
   protected Student() {}
 
   public Student(
@@ -113,6 +117,8 @@ public class Student {
     return studentAccount;
   }
 
+  public BusRoute getBusRoute() { return busRoute; }
+
   public void update(
       String firstName,
       String lastName,
@@ -139,4 +145,6 @@ public class Student {
   public void setStudentAccount(Account account) {
     this.studentAccount = account;
   }
+
+  public void setBusRoute(BusRoute busRoute) { this.busRoute = busRoute; }
 }

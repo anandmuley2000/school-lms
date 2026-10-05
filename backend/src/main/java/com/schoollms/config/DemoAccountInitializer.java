@@ -9,10 +9,12 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Profile;
 import org.springframework.transaction.annotation.Transactional;
 
 /** Seeds stable demo rows only when explicitly enabled; synchronizes only its exact demo accounts. */
 @Component
+@Profile("development")
 @ConditionalOnProperty(prefix = "app.demo", name = "data-enabled", havingValue = "true")
 public class DemoAccountInitializer implements ApplicationRunner {
   private static final String DEMO_STUDENT_CODE = "DEMO-STU-001";
@@ -100,6 +102,7 @@ public class DemoAccountInitializer implements ApplicationRunner {
               "Demo: Fractions review",
               "Practice equivalent fractions and explain each solution.",
               "6",
+              "A",
               "Mathematics",
               LocalDate.now().plusDays(7),
               teacher));
@@ -111,6 +114,7 @@ public class DemoAccountInitializer implements ApplicationRunner {
               "Demo: Water cycle poster",
               "Create a labeled diagram showing evaporation, condensation, and precipitation.",
               "6",
+              "A",
               "Science",
               LocalDate.now().plusDays(10),
               teacher));
