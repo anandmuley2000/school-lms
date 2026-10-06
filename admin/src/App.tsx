@@ -28,6 +28,7 @@ type Page =
   | "Fees"
   | "Messages"
   | "Notifications"
+  | "Profile"
   | "People"
   | "Events"
   | "Leave"
@@ -42,6 +43,7 @@ const nav: Page[] = [
   "Fees",
   "Messages",
   "Notifications",
+  "Profile",
   "People",
   "Events",
   "Leave",
@@ -57,6 +59,7 @@ const pageIconPaths: Record<Page, string> = {
   Fees: "M12 2v20m5-16H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
   Messages: "M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z",
   Notifications: "M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9m-8 13h4",
+  Profile: "M20 21a8 8 0 0 0-16 0m8-10a4 4 0 1 0 0-8 4 4 0 0 0 0 8",
   People: "M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2m6-10a4 4 0 1 0 0-8 4 4 0 0 0 0 8m7-7a4 4 0 1 1 0 8m2 3a4 4 0 0 1 3 4v2",
   Events: "M4 5h16v16H4zM8 3v4m8-4v4M4 10h16",
   Leave: "M4 4h16v16H4zM4 7l8 6 8-6",
@@ -88,6 +91,11 @@ export default function App() {
     [summary, setSummary] = useState<Record<string, number>>({}),
     [query, setQuery] = useState(""),
     [busy, setBusy] = useState(false),
+    [assistantOpen, setAssistantOpen] = useState(false),
+    [assistantInput, setAssistantInput] = useState(""),
+    [assistantMessages, setAssistantMessages] = useState<{ id: number; from: "assistant" | "user"; text: string }[]>([
+      { id: 1, from: "assistant", text: "Hi! I can help you find a section or answer simple questions about your school data." },
+    ]),
     [error, setError] = useState(""),
     [toast, setToast] = useState(""),
     [edit, setEdit] = useState<Student | null>(null);
@@ -198,6 +206,42 @@ export default function App() {
     clearSessionState();
     window.location.replace(window.location.pathname || "/");
   }
+  function askAssistant(raw: string) {
+    const question = raw.trim();
+    if (!question) return;
+    const normalized = question.toLowerCase().replace(/[^a-z0-9 ]/g, " ").trim();
+    const role = user?.role;
+    const routes: [RegExp, Page][] = [
+      [/\b(home|dashboard)\b/, "Overview"], [/\b(attendance|absent|present)\b/, "Attendance"],
+      [/\b(student|students|children|directory)\b/, "Students"], [/\b(homework|assignment)\b/, "Homework"],
+      [/\b(event|events|calendar)\b/, "Events"], [/\b(timetable|schedule)\b/, "Timetable"],
+      [/\b(leave|vacation)\b/, "Leave"], [/\b(bus|tracking|route)\b/, "Bus Tracking"],
+      [/\b(notification|notifications|update|updates)\b/, "Notifications"], [/\b(profile|account)\b/, "Profile"],
+      [/\b(result|results|grade|exam)\b/, "Results"], [/\b(fee|fees|payment)\b/, "Fees"], [/\b(message|messages|inbox)\b/, "Messages"],
+    ];
+    let answer = "I can help you navigate the portal and answer basic questions about loaded students, homework, leave, attendance, and bus routes. Try ‘open attendance’ or ‘how do I request leave?’";
+    const found = routes.find(([pattern]) => pattern.test(normalized));
+    if (found && /\b(open|show|go|take|navigate|where|view)\b/.test(normalized)) {
+      setPage(found[1]);
+      setAssistantOpen(false);
+      answer = `Opening ${found[1] === "Overview" ? "Home" : found[1] === "Notifications" ? "Updates" : found[1]}.`;
+    } else if (/\b(attendance|absent|present)\b/.test(normalized)) {
+      answer = role === "ADMIN" || role === "TEACHER" ? "Open Attendance to choose a student, mark Present, Absent, Late, or Leave, then save attendance." : "Open Attendance to see attendance history for your linked student(s).";
+    } else if (/\b(leave|vacation)\b/.test(normalized)) {
+      answer = role === "ADMIN" ? "Open Leave to review requests and approve or reject pending requests." : "Open Leave to submit a request or check its status.";
+    } else if (/\b(bus|route|tracking)\b/.test(normalized)) {
+      answer = `Open Bus Tracking to view routes. There ${busRoutes.length === 1 ? "is" : "are"} ${busRoutes.length} route${busRoutes.length === 1 ? "" : "s"} available right now.`;
+    } else if (/\b(homework|assignment)\b/.test(normalized)) {
+      answer = `There ${homework.length === 1 ? "is" : "are"} ${homework.length} assignment${homework.length === 1 ? "" : "s"} in the loaded list. Open Homework to view them.`;
+    } else if (/\b(student|students|children)\b/.test(normalized)) {
+      answer = `I can see ${students.length} student${students.length === 1 ? "" : "s"} in your account. Open Students to view the list.`;
+    } else if (/\b(help|what can you do|how do i)\b/.test(normalized)) {
+      answer = "Ask me to open a section (for example, ‘open attendance’) or ask how to use attendance, leave, homework, or bus tracking.";
+    }
+    const now = Date.now();
+    setAssistantMessages((current) => [...current, { id: now, from: "user", text: question }, { id: now + 1, from: "assistant", text: answer }]);
+    setAssistantInput("");
+  }
   if (!user) return <Login onLogin={login} busy={busy} error={error} />;
   const filtered = students.filter((s) =>
     `${s.studentCode} ${s.firstName} ${s.lastName} ${s.className}-${s.division} ${s.parentName}`
@@ -223,7 +267,7 @@ export default function App() {
               onClick={() => setPage(item)}
             >
               <span className="nav-icon"><PageIcon page={item} /></span>
-              {user.role === "PARENT" && item === "Students" ? "My children" : item}
+              {item === "Overview" ? "Home" : item === "Notifications" ? "Updates" : item === "Profile" ? "Profile" : user.role === "PARENT" && item === "Students" ? "My children" : item}
               {item === "Notifications" &&
                 notes.filter((n) => !n.read).length > 0 && (
                   <span className="badge">
@@ -249,7 +293,7 @@ export default function App() {
       <main className="main">
         <header className="topbar">
           <div className="crumb">
-            School / <b>{page}</b>
+            School / <b>{page === "Overview" ? "Home" : page === "Notifications" ? "Updates" : page}</b>
           </div>
           <div className="top-actions">
             <span className="term">Academic year 2026–27</span>
@@ -277,7 +321,7 @@ export default function App() {
               <h1>
                 {page === "Overview"
                   ? `Good morning, ${user.name.split(" ")[0]}`
-                  : page === "Students" && user.role === "PARENT" ? "My children" : page}
+                  : page === "Notifications" ? "Updates" : page === "Students" && user.role === "PARENT" ? "My children" : page}
               </h1>
               <p>
                 {page === "Overview"
@@ -574,6 +618,17 @@ export default function App() {
                 </p>
               </div>
             ))}
+          {page === "Profile" && (
+            <div className="profile-card panel">
+              <div className="profile-card-avatar">{user.name.slice(0, 1).toUpperCase()}</div>
+              <div className="profile-card-details">
+                <h2>{user.name}</h2>
+                <p>{user.email}</p>
+                <span className="chip">{user.role}</span>
+              </div>
+              <button className="secondary" onClick={signOut}>Log out</button>
+            </div>
+          )}
         </section>
       </main>
       {toast && (
@@ -583,6 +638,24 @@ export default function App() {
           <button type="button" aria-label="Dismiss message" onClick={() => setToast("")}>x</button>
         </div>
       )}
+      <div className="assistant-widget">
+        {assistantOpen && (
+          <section className="assistant-panel" aria-label="School assistant chat">
+            <header><div><strong>School assistant</strong><small>Navigation and quick answers</small></div><button aria-label="Close assistant" onClick={() => setAssistantOpen(false)}>×</button></header>
+            <div className="assistant-history" aria-live="polite">
+              {assistantMessages.map((message) => <div key={message.id} className={`assistant-bubble ${message.from}`}>{message.text}</div>)}
+            </div>
+            <div className="assistant-quick-links">
+              {(["Overview", "Attendance", "Leave", "Bus Tracking"] as Page[]).map((destination) => <button key={destination} onClick={() => { setPage(destination); setAssistantOpen(false); }}>{destination === "Overview" ? "Home" : destination}</button>)}
+            </div>
+            <form className="assistant-composer" onSubmit={(event) => { event.preventDefault(); askAssistant(assistantInput); }}>
+              <input value={assistantInput} onChange={(event) => setAssistantInput(event.target.value)} placeholder="Ask or find a section..." aria-label="Ask the school assistant" />
+              <button className="primary">Send</button>
+            </form>
+          </section>
+        )}
+        <button className="assistant-launcher" aria-label={assistantOpen ? "Close school assistant" : "Open school assistant"} onClick={() => setAssistantOpen((open) => !open)}>{assistantOpen ? "×" : "?"}</button>
+      </div>
       {edit && (
         <StudentEditor
           student={edit}
