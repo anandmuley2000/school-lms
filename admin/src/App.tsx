@@ -96,6 +96,7 @@ export default function App() {
     [assistantMessages, setAssistantMessages] = useState<{ id: number; from: "assistant" | "user"; text: string }[]>([
       { id: 1, from: "assistant", text: "Hi! I can help you find a section or answer simple questions about your school data." },
     ]),
+    [selectedChildId, setSelectedChildId] = useState<number | null>(null),
     [error, setError] = useState(""),
     [toast, setToast] = useState(""),
     [edit, setEdit] = useState<Student | null>(null);
@@ -248,7 +249,19 @@ export default function App() {
       .toLowerCase()
       .includes(query.toLowerCase()),
   );
-  const visibleStudents = students;
+  const selectedChild = students.find((student) => student.id === selectedChildId) ?? null;
+  const visibleStudents = user.role === "PARENT" && selectedChild ? [selectedChild] : students;
+  const visibleHomework = user.role === "PARENT" && selectedChild
+    ? homework.filter((item) => item.className === selectedChild.className && (!item.division || item.division === selectedChild.division))
+    : homework;
+  const visibleResults = user.role === "PARENT" && selectedChild ? results.filter((item) => item.studentId === selectedChild.id) : results;
+  const visibleFees = user.role === "PARENT" && selectedChild ? fees.filter((item) => item.studentId === selectedChild.id) : fees;
+  const visibleTimetable = user.role === "PARENT" && selectedChild
+    ? timetable.filter((row) => row.className === selectedChild.className && row.division === selectedChild.division)
+    : timetable;
+  const visibleBusRoutes = user.role === "PARENT" && selectedChild
+    ? busRoutes.filter((route) => route.id === selectedChild.busRouteId)
+    : busRoutes;
   return (
     <div className="shell">
       <aside className="sidebar">
@@ -296,6 +309,14 @@ export default function App() {
             School / <b>{page === "Overview" ? "Home" : page === "Notifications" ? "Updates" : page}</b>
           </div>
           <div className="top-actions">
+            {user.role === "PARENT" && students.length > 1 && (
+              <label className="child-switcher">Viewing
+                <select aria-label="Choose child" value={selectedChildId ?? "all"} onChange={(event) => setSelectedChildId(event.target.value === "all" ? null : Number(event.target.value))}>
+                  <option value="all">All children</option>
+                  {students.map((student) => <option key={student.id} value={student.id}>{student.firstName} {student.lastName}</option>)}
+                </select>
+              </label>
+            )}
             <span className="term">Academic year 2026–27</span>
             <button
               className="icon-button"
@@ -365,7 +386,7 @@ export default function App() {
               user={user}
               summary={summary}
               students={visibleStudents}
-              homework={homework}
+              homework={visibleHomework}
               notes={notes}
               go={setPage}
             />
@@ -471,7 +492,7 @@ export default function App() {
           {page === "Attendance" && (
             <Attendance
               user={user}
-              students={students}
+              students={visibleStudents}
               onSaved={async () => {
                 await reload();
                 setToast("Attendance saved and the parent was notified.");
@@ -481,8 +502,8 @@ export default function App() {
           {page === "Homework" && (
             <HomeworkPage
               user={user}
-              items={homework}
-              students={students}
+              items={visibleHomework}
+              students={visibleStudents}
               onSaved={async () => {
                 await reload();
                 setToast(
@@ -494,8 +515,8 @@ export default function App() {
           {page === "Results" && (
             <ResultsPage
               user={user}
-              students={students}
-              results={results}
+              students={visibleStudents}
+              results={visibleResults}
               onSaved={async () => {
                 await reload();
                 setToast("Result saved and family notified.");
@@ -505,8 +526,8 @@ export default function App() {
           {page === "Fees" && (
             <FeesPage
               user={user}
-              students={students}
-              fees={fees}
+              students={visibleStudents}
+              fees={visibleFees}
               onSaved={async () => {
                 await reload();
                 setToast("Fee record updated.");
@@ -524,14 +545,10 @@ export default function App() {
             />
           )}
           {page === "Events" && (
-            <EventsPage
-              user={user}
-              items={events}
-              onSaved={async () => {
-                await reload();
-                setToast("School events updated.");
-              }}
-            />
+            <>
+              <EventsCalendar items={events} />
+              <EventsPage user={user} items={events} onSaved={async () => { await reload(); setToast("School events updated."); }} />
+            </>
           )}
           {page === "Leave" && (
             <LeavePage
@@ -547,7 +564,7 @@ export default function App() {
           {page === "Bus Tracking" && (
             <BusTrackingPage
               user={user}
-              items={busRoutes}
+              items={visibleBusRoutes}
               onSaved={async () => {
                 await reload();
                 setToast("Bus routes updated.");
@@ -557,7 +574,7 @@ export default function App() {
               }
             />
           )}
-          {page === "Timetable" && <TimetablePage user={user} items={timetable} accounts={accounts} students={students} onSaved={async () => { await reload(); setToast("Timetable updated."); }} />}
+          {page === "Timetable" && <TimetablePage user={user} items={visibleTimetable} accounts={accounts} students={students} onSaved={async () => { await reload(); setToast("Timetable updated."); }} />}
           {page === "Notifications" && (
             <div className="list-card">
               <div className="table-head">
@@ -672,6 +689,47 @@ export default function App() {
           }}
         />
       )}
+    </div>
+  );
+}
+function EventsCalendar({ items }: { items: SchoolEvent[] }) {
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().slice(0, 10));
+  const selectedEvents = items.filter((event) => event.eventDate === selectedDate);
+  const selectedDayIsSunday = new Date(`${selectedDate}T00:00:00`).getDay() === 0;
+  return (
+    <div className="calendar-panel panel">
+      <div className="calendar-header">
+        <div><h2>Yearly school calendar</h2><p>Sundays are weekly holidays. School holidays and events are maintained by the administration.</p></div>
+        <div className="calendar-year-control"><button aria-label="Previous year" onClick={() => setYear((value) => value - 1)}>‹</button><strong>{year}</strong><button aria-label="Next year" onClick={() => setYear((value) => value + 1)}>›</button></div>
+      </div>
+      <div className="calendar-legend"><span><i className="calendar-holiday-dot" /> Sunday / holiday</span><span><i className="calendar-event-dot" /> School event</span></div>
+      <div className="calendar-grid">
+        {Array.from({ length: 12 }, (_, month) => {
+          const firstWeekday = new Date(year, month, 1).getDay();
+          const days = new Date(year, month + 1, 0).getDate();
+          return <section className="calendar-month" key={month}>
+            <h3>{new Date(year, month, 1).toLocaleDateString(undefined, { month: "long" })}</h3>
+            <div className="calendar-days">
+              {(["S", "M", "T", "W", "T", "F", "S"] as const).map((day, index) => <span className="calendar-weekday" key={`${day}-${index}`}>{day}</span>)}
+              {Array.from({ length: firstWeekday }, (_, index) => <span className="calendar-blank" key={`blank-${index}`} />)}
+              {Array.from({ length: days }, (_, index) => {
+                const day = index + 1;
+                const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                const holiday = new Date(year, month, day).getDay() === 0 || items.some((event) => event.eventDate === date && event.holiday);
+                const hasEvent = items.some((event) => event.eventDate === date);
+                return <button key={date} className={`calendar-day ${holiday ? "holiday" : ""} ${date === selectedDate ? "selected" : ""}`} aria-label={`${new Date(`${date}T00:00:00`).toLocaleDateString()}${holiday ? ", holiday" : hasEvent ? ", school event" : ""}`} onClick={() => setSelectedDate(date)}>{day}{(holiday || hasEvent) && <i className={hasEvent ? "has-event" : ""} />}</button>;
+              })}
+            </div>
+          </section>;
+        })}
+      </div>
+      <div className="calendar-selected">
+        <h3>{new Date(`${selectedDate}T00:00:00`).toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</h3>
+        {selectedDayIsSunday && <div className="calendar-event"><strong>Weekly holiday</strong><span>Sunday</span></div>}
+        {selectedEvents.map((event) => <article className="calendar-event" key={event.id}><div><strong>{event.title}</strong><p>{event.description || "No event details provided."}</p><small>{event.location || "School"}</small></div>{event.holiday && <span>Holiday</span>}</article>)}
+        {!selectedDayIsSunday && selectedEvents.length === 0 && <p className="muted">No school events are scheduled for this date.</p>}
+      </div>
     </div>
   );
 }
