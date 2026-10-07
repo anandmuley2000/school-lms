@@ -2,7 +2,7 @@
 :root {
   font-family: "DM Sans", sans-serif;
   color: #23374d;
-  background: #f5f7fb;
+  background: #edf2f6;
   font-size: 14px;
   --ink: #172b43;
   --muted: #7c8a9b;
@@ -34,7 +34,7 @@ button:disabled {
 }
 .sidebar {
   width: 244px;
-  background: #102a43;
+  background: #202f35;
   color: #d9e4ee;
   position: fixed;
   inset: 0 auto 0 0;
@@ -57,7 +57,7 @@ button:disabled {
 .brand-mark {
   width: 34px;
   height: 34px;
-  background: #4a8de5;
+  background: linear-gradient(145deg, #36a67a, #167d69);
   border-radius: 10px;
   display: grid;
   place-items: center;
@@ -78,7 +78,7 @@ button:disabled {
   letter-spacing: 1.45px;
   color: #748da3;
   font-weight: 700;
-  margin: 43px 10px 12px;
+  margin: 28px 10px 12px;
 }
 .sidebar nav {
   display: grid;
@@ -106,10 +106,10 @@ button:disabled {
   color: #fff;
 }
 .nav-item.active {
-  background: #244a6e;
+  background: #388db4;
   color: #fff;
   font-weight: 650;
-  box-shadow: inset 3px 0 #69a6ff;
+  box-shadow: inset 3px 0 #8ed7f0;
 }
 .nav-icon {
   width: 19px;
@@ -121,7 +121,7 @@ button:disabled {
 .app-icon { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: 0 0 auto; }
 .family-link-note { grid-column: 1 / -1; color: #59718a; background: #f1f6fc; border: 1px solid #e2ebf5; border-radius: 10px; padding: 12px 14px; font-size: 12px; line-height: 1.5; }
 .nav-item.active .nav-icon {
-  color: #82b7ff;
+  color: #fff;
 }
 .badge {
   margin-left: auto;
@@ -217,7 +217,7 @@ button:disabled {
 }
 .topbar {
   height: 65px;
-  background: #fff;
+  background: #438db5;
   border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
@@ -225,11 +225,11 @@ button:disabled {
   padding: 0 42px;
 }
 .crumb {
-  color: #94a0ae;
+  color: #e1f1f8;
   font-size: 12px;
 }
 .crumb b {
-  color: #354a60;
+  color: #fff;
   font-weight: 600;
 }
 .top-actions {
@@ -239,10 +239,10 @@ button:disabled {
 }
 .topbar-logout {
   padding: 7px 10px;
-  border: 1px solid #d5e2ef;
+  border: 1px solid #d4e9f2;
   border-radius: 7px;
   background: #fff;
-  color: #35699b;
+  color: #246587;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
@@ -253,12 +253,12 @@ button:disabled {
 }
 .term {
   font-size: 11px;
-  color: #8793a0;
+  color: #e0eff5;
 }
 .icon-button {
   border: 0;
   background: transparent;
-  color: #607287;
+  color: #fff;
   font-size: 19px;
   position: relative;
 }
@@ -273,7 +273,7 @@ button:disabled {
 }
 .content {
   max-width: 1440px;
-  padding: 35px 42px 55px;
+  padding: 30px 32px 55px;
   margin: auto;
 }
 .page-heading {
@@ -285,7 +285,7 @@ button:disabled {
 .eyebrow {
   font-size: 9px;
   letter-spacing: 1.55px;
-  color: #8a99a9;
+  color: #66869b;
   font-weight: 750;
   margin-bottom: 7px;
 }
@@ -311,12 +311,12 @@ button:disabled {
   font-size: 12px;
 }
 .primary {
-  background: #377bd2;
+  background: #258c80;
   color: white;
   box-shadow: 0 3px 9px #3378d333;
 }
 .primary:hover {
-  background: #2868bd;
+  background: #1d746a;
 }
 .secondary {
   background: white;
@@ -346,12 +346,19 @@ button:disabled {
 .stat-card {
   padding: 17px 18px;
   min-height: 124px;
+  border: 0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px #23384a12;
 }
+.stat-card:nth-child(4n + 1) { background: #e95f91; }
+.stat-card:nth-child(4n + 2) { background: #4bb2a6; }
+.stat-card:nth-child(4n + 3) { background: #9275c7; }
+.stat-card:nth-child(4n) { background: #ff8b68; }
 .stat-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  color: #8290a0;
+  color: #fff;
   font-size: 11px;
 }
 .stat-icon {
@@ -363,32 +370,32 @@ button:disabled {
   font-style: normal;
 }
 .stat-icon.blue {
-  background: #eaf2fe;
-  color: #4b83d0;
+  background: #ffffff30;
+  color: #fff;
 }
 .stat-icon.purple {
-  background: #f1edff;
-  color: #8875cb;
+  background: #ffffff30;
+  color: #fff;
 }
 .stat-icon.green {
-  background: #e9f6f1;
-  color: #4c9c7e;
+  background: #ffffff30;
+  color: #fff;
 }
 .stat-icon.orange {
-  background: #fff2e5;
-  color: #cb8b47;
+  background: #ffffff30;
+  color: #fff;
 }
 .stat-card > strong {
   display: block;
   font:
     700 27px Manrope,
     sans-serif;
-  color: #20354a;
+  color: #fff;
   margin: 10px 0 4px;
 }
 .stat-card > small {
   font-size: 10px;
-  color: #91a0af;
+  color: #ffffffd9;
 }
 .dashboard-grid {
   display: grid;
@@ -398,6 +405,8 @@ button:disabled {
 }
 .panel {
   padding: 19px 20px;
+  border-radius: 9px;
+  box-shadow: 0 3px 12px #1735530b;
 }
 .panel-heading,
 .table-head {

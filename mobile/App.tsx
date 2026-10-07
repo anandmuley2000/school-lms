@@ -420,56 +420,58 @@ function AppContent() {
           style={styles.login}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
         >
-          <View style={styles.logo}>
-            <Text style={styles.logoText}>N</Text>
+          <View style={styles.loginCard}>
+            <View style={styles.logo}>
+              <Text style={styles.logoText}>A</Text>
+            </View>
+            <Text style={styles.kicker}>ABC SCHOOL</Text>
+            <Text style={styles.title}>Welcome back</Text>
+            <Text style={styles.muted}>Sign in to your school account.</Text>
+            <TextInput
+              style={styles.input}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Email address"
+            />
+            <TextInput
+              style={styles.input}
+              secureTextEntry
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Password"
+            />
+            {error ? <Text style={styles.error}>{error}</Text> : null}
+            <Pressable
+              style={styles.button}
+              onPress={() => login()}
+              disabled={busy}
+            >
+              <Text style={styles.buttonText}>
+                {busy ? "Signing in…" : "Sign in"}
+              </Text>
+            </Pressable>
+            {IS_DEVELOPMENT_BUILD && (
+              <>
+                <Text style={styles.sectionLabel}>DEVELOPMENT ACCOUNTS</Text>
+                <View style={styles.demoRow}>
+                  {demos.map((d) => (
+                    <Pressable
+                      key={d.role}
+                      style={styles.demo}
+                      onPress={() => {
+                        setEmail(d.email);
+                        setPassword(d.password);
+                      }}
+                    >
+                      <Text style={styles.demoText}>{d.role}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            )}
           </View>
-          <Text style={styles.kicker}>ABC SCHOOL</Text>
-          <Text style={styles.title}>Welcome back</Text>
-          <Text style={styles.muted}>Sign in to your school account.</Text>
-          <TextInput
-            style={styles.input}
-            autoCapitalize="none"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
-            placeholder="Email address"
-          />
-          <TextInput
-            style={styles.input}
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Password"
-          />
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-          <Pressable
-            style={styles.button}
-            onPress={() => login()}
-            disabled={busy}
-          >
-            <Text style={styles.buttonText}>
-              {busy ? "Signing in…" : "Sign in"}
-            </Text>
-          </Pressable>
-          {IS_DEVELOPMENT_BUILD && (
-            <>
-              <Text style={styles.sectionLabel}></Text>
-              <View style={styles.demoRow}>
-                {demos.map((d) => (
-                  <Pressable
-                    key={d.role}
-                    style={styles.demo}
-                    onPress={() => {
-                      setEmail(d.email);
-                      setPassword(d.password);
-                    }}
-                  >
-                    <Text style={styles.demoText}>{d.role}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </>
-          )}
         </KeyboardAvoidingView>
       </SafeAreaView>
     );
@@ -497,7 +499,7 @@ function AppContent() {
       <StatusBar barStyle="dark-content" />
       <View style={styles.top}>
         <View>
-          <Text style={styles.kicker}>ABC SCHOOL</Text>
+          <Text style={[styles.kicker, styles.topKicker]}>ABC SCHOOL</Text>
           <Text style={styles.topTitle}>{user.name}</Text>
         </View>
         <Pressable style={styles.avatar} onPress={() => setTab("Profile")}>
@@ -976,10 +978,10 @@ function AppContent() {
         )}
       </Pressable>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.nav} contentContainerStyle={styles.navContent}>
-        {tabs.map((t, i) => (
-          <Pressable key={t} style={styles.navItem} onPress={() => setTab(t)}>
+        {tabs.map((t) => (
+          <Pressable key={t} style={[styles.navItem, tab === t && styles.navItemActive]} onPress={() => setTab(t)}>
             <Text style={[styles.navIcon, tab === t && styles.navActive]}>
-              {({ Home: "⌂", Students: "♙", Homework: "▧", Updates: "◉", Profile: "○", Attendance: "✓", Events: "☆", Leave: "✉", Results: "◈", Fees: "₹", Messages: "✉", "Bus Tracking": "🚌" } as Record<Tab, string>)[t]}
+              {({ Home: "⌂", Students: "♙", Homework: "▧", Updates: "◉", Profile: "○", Attendance: "✓", Events: "☆", Leave: "✉", Results: "◈", Fees: "₹", Messages: "✉", "Bus Tracking": "▣", Timetable: "▦" } as Record<Tab, string>)[t]}
             </Text>
             <Text style={[styles.navText, tab === t && styles.navActive]}>
               {t}
@@ -991,8 +993,9 @@ function AppContent() {
   );
 }
 function Stat({ label, value }: { label: string; value: number }) {
+  const tone = label === "Homework" ? styles.statTeal : label === "Updates" ? styles.statPurple : styles.statPink;
   return (
-    <View style={styles.stat}>
+    <View style={[styles.stat, tone]}>
       <Text style={styles.statValue}>{value}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
@@ -1172,17 +1175,23 @@ function AttendanceCard({
   );
 }
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#f5f7fb" },
+  safe: { flex: 1, backgroundColor: "#edf2f6" },
   mainScroll: { flex: 1, minHeight: 0 },
   login: { flex: 1, justifyContent: "center", paddingHorizontal: 25 },
+  loginCard: { width: "100%", maxWidth: 480, alignSelf: "center", padding: 22, borderRadius: 22, backgroundColor: "white", borderWidth: 1, borderColor: "#e4ebf1", elevation: 6, shadowColor: "#18364e", shadowOpacity: 0.12, shadowRadius: 14, shadowOffset: { width: 0, height: 5 } },
   logo: {
     width: 47,
     height: 47,
-    borderRadius: 14,
-    backgroundColor: "#3577d4",
+    borderRadius: 15,
+    backgroundColor: "#258d78",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 20,
+    marginBottom: 18,
+    elevation: 5,
+    shadowColor: "#18364e",
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
   },
   logoText: {
     fontFamily: "Georgia",
@@ -1194,9 +1203,9 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "700",
     letterSpacing: 1.5,
-    color: "#778b9f",
+    color: "#4b819c",
   },
-  title: { fontSize: 28, fontWeight: "800", color: "#172b43", marginTop: 7 },
+  title: { fontSize: 29, fontWeight: "800", color: "#17364b", marginTop: 7, letterSpacing: -0.5 },
   muted: {
     fontSize: 13,
     color: "#8292a1",
@@ -1206,9 +1215,9 @@ const styles = StyleSheet.create({
   },
   input: {
     height: 48,
-    borderRadius: 9,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#e0e7ed",
+    borderColor: "#dfe7ee",
     backgroundColor: "white",
     paddingHorizontal: 13,
     marginBottom: 11,
@@ -1260,45 +1269,60 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   top: {
-    height: 66,
+    height: 78,
     paddingHorizontal: 20,
-    backgroundColor: "white",
+    backgroundColor: "#438db5",
     borderBottomWidth: 1,
-    borderBottomColor: "#e9edf2",
+    borderBottomColor: "#357d9f",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  topTitle: { fontSize: 17, fontWeight: "700", color: "#1e344a", marginTop: 2 },
+  topTitle: { fontSize: 17, fontWeight: "700", color: "white", marginTop: 2 },
   avatar: {
     width: 34,
     height: 34,
     borderRadius: 20,
-    backgroundColor: "#e8f0fb",
+    backgroundColor: "#e9f5f8",
     alignItems: "center",
     justifyContent: "center",
   },
-  avatarText: { color: "#3577d4", fontWeight: "700" },
-  body: { padding: 18, paddingBottom: 25 },
+  avatarText: { color: "#337e9f", fontWeight: "700" },
+  body: { padding: 18, paddingBottom: 28 },
   welcome: {
     padding: 19,
-    backgroundColor: "#eaf2fd",
-    borderRadius: 13,
+    backgroundColor: "#3e8eb4",
+    borderRadius: 16,
     marginBottom: 13,
+    paddingVertical: 22,
+    elevation: 3,
+    shadowColor: "#24506a",
+    shadowOpacity: 0.14,
+    shadowRadius: 9,
+    shadowOffset: { width: 0, height: 3 },
   },
-  welcomeTitle: { fontSize: 18, fontWeight: "800", color: "#1c3e61" },
-  welcomeText: { fontSize: 11, color: "#6e8297", marginTop: 7, lineHeight: 17 },
+  topKicker: { color: "#d9eff6" },
+  welcomeTitle: { fontSize: 19, fontWeight: "800", color: "white" },
+  welcomeText: { fontSize: 11, color: "#e4f2f7", marginTop: 7, lineHeight: 17 },
   statRow: { flexDirection: "row", gap: 9, marginBottom: 10 },
   stat: {
     flex: 1,
     padding: 14,
     borderRadius: 11,
-    backgroundColor: "white",
+    backgroundColor: "#e95f91",
     borderWidth: 1,
-    borderColor: "#edf0f4",
+    borderColor: "transparent",
+    elevation: 3,
+    shadowColor: "#18364e",
+    shadowOpacity: 0.12,
+    shadowRadius: 7,
+    shadowOffset: { width: 0, height: 3 },
   },
-  statValue: { fontSize: 21, fontWeight: "800", color: "#234360" },
-  statLabel: { fontSize: 9, color: "#8a98a5", marginTop: 3 },
+  statPink: { backgroundColor: "#e95f91" },
+  statTeal: { backgroundColor: "#4bb2a6" },
+  statPurple: { backgroundColor: "#9275c7" },
+  statValue: { fontSize: 21, fontWeight: "800", color: "white" },
+  statLabel: { fontSize: 9, color: "#ffffffeb", marginTop: 3 },
   section: { marginTop: 15 },
   calendarYearRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 18, marginBottom: 12, padding: 8, borderRadius: 14, backgroundColor: "#f4f8ff" },
   calendarYearButton: { width: 40, height: 38, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: "white", borderWidth: 1, borderColor: "#e6edf6" },
@@ -1337,16 +1361,21 @@ const styles = StyleSheet.create({
   quickTile: {
     flex: 1,
     backgroundColor: "white",
-    borderColor: "#edf0f4",
+    borderColor: "#e7edf3",
     borderWidth: 1,
-    borderRadius: 10,
-    padding: 12,
+    borderRadius: 13,
+    padding: 13,
+    elevation: 2,
+    shadowColor: "#18364e",
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
   },
   quickTitle: { fontSize: 11, fontWeight: "700", color: "#354d65" },
   card: {
     padding: 14,
     backgroundColor: "white",
-    borderRadius: 10,
+    borderRadius: 13,
     borderWidth: 1,
     borderColor: "#edf0f4",
     marginBottom: 8,
@@ -1501,18 +1530,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
+    gap: 4,
   },
   navItem: {
     alignItems: "center",
     justifyContent: "center",
     gap: 3,
-    minWidth: 49,
-    paddingHorizontal: 3,
+    minWidth: 57,
+    paddingHorizontal: 5,
+    paddingVertical: 6,
+    borderRadius: 10,
   },
+  navItemActive: { backgroundColor: "#e9f4f8" },
   navIcon: { fontSize: 17, color: "#94a1ad" },
-  navText: { fontSize: 9, color: "#94a1ad" },
-  navActive: { color: "#377bd2", fontWeight: "700" },
+  navText: { fontSize: 9, color: "#75899a" },
+  navActive: { color: "#267c9e", fontWeight: "700" },
   fieldLabel: {
     fontSize: 9,
     letterSpacing: 1,

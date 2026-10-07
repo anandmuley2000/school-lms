@@ -266,9 +266,9 @@ export default function App() {
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
-          <span className="brand-mark">N</span>
+          <span className="brand-mark">A</span>
           <span>
-            Northstar<span className="brand-sub">SCHOOL LMS</span>
+            ABC School<span className="brand-sub">SCHOOL LMS</span>
           </span>
         </div>
         <div className="school-label">SCHOOL WORKSPACE</div>
@@ -1107,9 +1107,9 @@ function Login({
     <main className="login-page">
       <div className="login-card">
         <div className="brand login-brand">
-          <span className="brand-mark">N</span>
+          <span className="brand-mark">A</span>
           <span>
-            Northstar<span className="brand-sub">SCHOOL LMS</span>
+            ABC School<span className="brand-sub">SCHOOL LMS</span>
           </span>
         </div>
         <div className="eyebrow">WELCOME BACK</div>
@@ -1168,7 +1168,7 @@ function Login({
           </>
         )}
         <small className="login-foot">
-          Connected to the Northstar School API · MySQL
+          Connected to the ABC School API · MySQL
         </small>
       </div>
       <div className="login-aside">
@@ -1180,7 +1180,7 @@ function Login({
           tomorrow.
         </blockquote>
         <div className="quote-rule" />
-        <span>NORTHSTAR SCHOOL · EST. 1987</span>
+        <span>ABC SCHOOL · SCHOOL PORTAL</span>
       </div>
     </main>
   );
@@ -2386,7 +2386,7 @@ function StudentEditor({
               value={form.parentEmail || ""}
               required
               onChange={(e) => change("parentEmail", e.target.value)}
-              placeholder="parent@northstar.local"
+              placeholder="Parent email address"
             />
           </label>
           <p className="wide family-link-note">Students use the linked parent account to access attendance, homework, results, fees, and school updates.</p>

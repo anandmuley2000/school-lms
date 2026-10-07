@@ -14,7 +14,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
 
   return {
     ...config,
-    name: config.name ?? "Northstar School",
+    name: "ABC School",
     slug: config.slug ?? "northstar-school",
     extra: {
       ...config.extra,

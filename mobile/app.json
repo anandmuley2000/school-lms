@@ -1,18 +1,18 @@
 {
   "expo": {
-    "name": "Northstar School",
+    "name": "ABC School",
     "slug": "northstar-school-lms",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "splash": { "backgroundColor": "#f4f7fb" },
+    "splash": { "backgroundColor": "#edf2f6" },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.schoollms.northstar"
     },
     "android": {
       "package": "com.schoollms.northstar",
-      "adaptiveIcon": { "backgroundColor": "#102a43" }
+      "adaptiveIcon": { "backgroundColor": "#202f35" }
     },
     "plugins": ["expo-secure-store"]
   }
