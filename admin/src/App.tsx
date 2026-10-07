@@ -1243,6 +1243,18 @@ function Overview({
   const attendancePercent = totalToday
     ? Math.round(((summary.presentToday || 0) / totalToday) * 100)
     : 0;
+  const classCounts = Object.entries(students.reduce<Record<string, number>>((counts, student) => {
+    const className = `${student.className}-${student.division}`;
+    counts[className] = (counts[className] ?? 0) + 1;
+    return counts;
+  }, {})).sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true })).slice(0, 7);
+  const maxClassCount = Math.max(1, ...classCounts.map(([, count]) => count));
+  const subjectCounts = Object.entries(homework.reduce<Record<string, number>>((counts, item) => {
+    const subject = item.subject || "General";
+    counts[subject] = (counts[subject] ?? 0) + 1;
+    return counts;
+  }, {})).sort(([, a], [, b]) => b - a).slice(0, 5);
+  const maxSubjectCount = Math.max(1, ...subjectCounts.map(([, count]) => count));
   return (
     <>
       <div className="stats-grid">
@@ -1342,6 +1354,25 @@ function Overview({
               <div className="empty small-empty">Nothing new today.</div>
             )}
           </div>
+        </div>
+      </div>
+      <div className="analytics-grid">
+        <div className="panel chart-panel">
+          <div className="panel-heading"><div><h2>Students by class</h2><p>Current roster distribution</p></div><span className="chart-total">{students.length} students</span></div>
+          {classCounts.length ? <div className="class-chart" aria-label="Student counts by class">
+            {classCounts.map(([className, count], index) => <div className="class-chart-column" key={className}>
+              <strong>{count}</strong><div className={`class-chart-bar tone-${index % 4}`} style={{ height: `${Math.max(12, (count / maxClassCount) * 100)}%` }} /><small>{className}</small>
+            </div>)}
+          </div> : <div className="chart-empty">Student class data will appear here when records are available.</div>}
+        </div>
+        <div className="panel chart-panel">
+          <div className="panel-heading"><div><h2>Homework by subject</h2><p>Published assignments</p></div><span className="chart-total">{homework.length} total</span></div>
+          {subjectCounts.length ? <div className="subject-chart">
+            {subjectCounts.map(([subject, count], index) => <div className="subject-chart-row" key={subject}>
+              <div className="subject-chart-label"><span>{subject}</span><strong>{count}</strong></div>
+              <div className="subject-track"><i className={`tone-${index % 4}`} style={{ width: `${(count / maxSubjectCount) * 100}%` }} /></div>
+            </div>)}
+          </div> : <div className="chart-empty">Published subject assignments will appear here.</div>}
         </div>
       </div>
       <div className="lower-grid">

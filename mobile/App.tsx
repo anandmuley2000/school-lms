@@ -481,6 +481,11 @@ function AppContent() {
       : user.role === "ADMIN"
         ? ["Home", "Students", "Attendance", "Events", "Timetable", "Leave", "Bus Tracking", "Updates", "Profile"]
         : ["Home", "Students", "Attendance", "Homework", "Results", "Fees", "Messages", "Events", "Timetable", "Leave", "Bus Tracking", "Updates", "Profile"];
+  const quickAccess: Tab[] = user.role === "ADMIN"
+    ? ["Students", "Attendance", "Events", "Timetable"]
+    : user.role === "TEACHER"
+      ? ["Attendance", "Homework", "Events", "Bus Tracking"]
+      : ["Attendance", "Results", "Fees", "Messages"];
   const selectedChild = students.find((student) => student.id === selectedChildId) ?? null;
   const visibleStudents = user.role === "PARENT" && selectedChild ? [selectedChild] : students;
   const visibleHomework = user.role === "PARENT" && selectedChild
@@ -535,15 +540,20 @@ function AppContent() {
             </View>
             <Section title="School tools">
               <View style={styles.quickGrid}>
-                {(["Attendance", "Results", "Fees", "Messages"] as Tab[]).map(
-                  (t) => (
+                {quickAccess.map(
+                  (t, index) => (
                     <Pressable
                       key={t}
                       style={styles.quickTile}
                       onPress={() => setTab(t)}
                     >
+                      <View style={[styles.quickTileIcon, { backgroundColor: ["#e8f2ff", "#e7f6f1", "#f1edff", "#fff0e7"][index % 4] }]}>
+                        <Text style={[styles.quickGlyph, { color: ["#4d8ddb", "#3b9c78", "#8971c1", "#d47f52"][index % 4] }]}>
+                          {({ Students: "♙", Attendance: "✓", Homework: "▧", Events: "☆", Timetable: "▦", Results: "◈", Fees: "₹", Messages: "✉", "Bus Tracking": "▣" } as Partial<Record<Tab, string>>)[t] ?? "•"}
+                        </Text>
+                      </View>
                       <Text style={styles.quickTitle}>{t}</Text>
-                      <Text style={styles.role}>Open →</Text>
+                      <Text style={styles.quickSubtitle}>Open section <Text style={styles.quickArrow}>→</Text></Text>
                     </Pressable>
                   ),
                 )}
@@ -1357,9 +1367,10 @@ const styles = StyleSheet.create({
     color: "#233a50",
     marginBottom: 9,
   },
-  quickGrid: { flexDirection: "row", gap: 8 },
+  quickGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 9 },
   quickTile: {
-    flex: 1,
+    flexBasis: "48%",
+    flexGrow: 0,
     backgroundColor: "white",
     borderColor: "#e7edf3",
     borderWidth: 1,
@@ -1371,7 +1382,11 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
   },
-  quickTitle: { fontSize: 11, fontWeight: "700", color: "#354d65" },
+  quickTileIcon: { width: 36, height: 36, borderRadius: 11, alignItems: "center", justifyContent: "center", marginBottom: 10 },
+  quickGlyph: { fontSize: 18, fontWeight: "800" },
+  quickTitle: { fontSize: 12, fontWeight: "800", color: "#354d65" },
+  quickSubtitle: { fontSize: 9, color: "#8292a1", marginTop: 5 },
+  quickArrow: { color: "#318ca8", fontWeight: "800" },
   card: {
     padding: 14,
     backgroundColor: "white",
