@@ -50,6 +50,12 @@ app:
     reset-enabled: false
     data-enabled: ${DEMO_DATA_ENABLED:false}
 
+  bootstrap-admin:
+    enabled: ${BOOTSTRAP_ADMIN_ENABLED:false}
+    email: ${BOOTSTRAP_ADMIN_EMAIL:}
+    password: ${BOOTSTRAP_ADMIN_PASSWORD:}
+    name: ${BOOTSTRAP_ADMIN_NAME:}
+
 management:
   endpoints:
     web:

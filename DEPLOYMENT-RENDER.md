@@ -22,7 +22,22 @@ The backend Dockerfile copies `backend/` and the Maven wrapper from the reposito
 5. In Render's `school-lms-api` Environment settings, set `DB_HOST` to the Aiven hostname and `DB_PORT` to the Aiven port shown in Connection information (do not assume 3306). Set `DB_NAME`, `DB_USERNAME`, and `DB_PASSWORD` to the Aiven database and user values, and set `DB_SSL_MODE=REQUIRED`. Never put database credentials in `render.yaml`, Git, or a frontend variable. Render environment values are configured in the dashboard or supplied through Blueprint placeholders, not committed as secrets; see [Render environment variables](https://render.com/docs/configure-environment-variables).
 6. The Blueprint generates `JWT_SECRET` once and sets `SPRING_PROFILES_ACTIVE=production`, `DEMO_DATA_ENABLED=false`, and `PORT=8080`. Keep the generated JWT secret stable after deploys. Check API logs and `/actuator/health`; startup logs should show Flyway applying V1–V4 before Hibernate schema validation. Do not proceed if database access, migration, or schema validation fails.
 7. Once the Netlify frontend has its production URL and Render has assigned the API URL, set the API's `CORS_ALLOWED_ORIGINS` to the exact Netlify origin (scheme and host only, no path or trailing slash), plus `https://localhost` for the Capacitor Android WebView. Save and redeploy the API. Set Netlify's build variable `VITE_API_URL` to `https://<actual-api-host>/api` using the actual Render API hostname, then rebuild the Netlify site.
-8. Verify the portal login and role-specific pages against the production API. Production intentionally does not seed demo accounts. Provision the first administrator using the project's controlled database process; do not try the development demo credentials.
+8. For the first production administrator, use the one-time bootstrap below. Production intentionally does not seed demo accounts; do not try the development demo credentials.
+
+### Create the first production administrator
+
+The backend supports an explicitly enabled, production-profile bootstrap. In the Render API service's **Environment** settings, temporarily set:
+
+| Variable | Value |
+| --- | --- |
+| `BOOTSTRAP_ADMIN_ENABLED` | `true` |
+| `BOOTSTRAP_ADMIN_EMAIL` | The administrator's real email address |
+| `BOOTSTRAP_ADMIN_PASSWORD` | A unique password of at least 12 characters; enter it only in Render's secret environment settings |
+| `BOOTSTRAP_ADMIN_NAME` | The administrator's display name |
+
+Save the environment and let Render redeploy. On startup, the backend creates the account only if the production database has no admin account. It stores a BCrypt hash, never the plain password. It will not overwrite an existing admin or promote an existing non-admin account; use a different email if the chosen address is already in use. Sign in at the portal, then immediately remove all four `BOOTSTRAP_ADMIN_*` variables from Render and redeploy. The setting defaults to disabled, is not an HTTP endpoint, and is ignored outside the production profile.
+
+If the service already has an admin account but you do not know its password, this bootstrap intentionally does not reset it. Use a separately reviewed recovery procedure instead.
 
 ## Environment variables
 
