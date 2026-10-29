@@ -1,5 +1,5 @@
 server:
-  # Railway injects PORT at runtime; 8080 is the container's safe fallback.
+  # Railway and Render inject PORT at runtime; 8080 is the safe fallback.
   port: ${PORT:8080}
   address: 0.0.0.0
 spring:

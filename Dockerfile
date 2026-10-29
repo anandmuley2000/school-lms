@@ -2,8 +2,8 @@ FROM maven:3.9.11-eclipse-temurin-21 AS build
 
 WORKDIR /workspace
 
-# The build context is the repository root. Keep the project wrappers available
-# in the build image for the same layout used by local development.
+# Render builds this Dockerfile with the repository root as its context.
+# Keep the wrappers and backend sources in their existing monorepo locations.
 COPY mvnw mvnw.cmd ./
 COPY .mvn .mvn
 COPY backend/pom.xml backend/pom.xml

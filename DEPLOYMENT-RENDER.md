@@ -1,120 +1,70 @@
-# Archived deployment notes: Render
+# Deploy the full School LMS to Render
 
-The active production target is Railway. Use [DEPLOYMENT-RAILWAY.md](DEPLOYMENT-RAILWAY.md) and the root [.env.example](.env.example) for current configuration. This file documents an earlier Render proposal and should not be used for new deployments.
+This repository contains three parts: a Spring Boot API in `backend/`, a React/Vite portal in `admin/`, and an Expo mobile app in `mobile/`. The Render Blueprint at [`render.yaml`](render.yaml) deploys the API and portal as two services. The Android/Expo app remains a client; it is not a long-running Render service.
 
-# Render deployment (MySQL stays MySQL)
+The backend continues to use the existing MySQL database. This setup does not create, migrate, or replace the database. It also does not change the existing Railway deployment configuration.
 
-This guide deploys the existing React/Vite admin as a Render Static Site and the existing Spring Boot API as a Render Web Service. The API remains connected to MySQL 8 through `DB_*` environment variables. No production domain or database credentials are assumed here.
+## Render services
 
-## Deployment prerequisites and cost
+| Service | Runtime | Source/build settings | Health check |
+| --- | --- | --- | --- |
+| `school-lms-api` | Docker web service | Repository root; `Dockerfile` with repository root context | `/actuator/health` |
+| `school-lms-portal` | Static site | Root directory `admin`; `npm ci && npm run build`; publish `dist` | Render serves the static site |
 
-Render supports free static sites and free web services, but a free web service can spin down after inactivity. Render does not offer managed MySQL. Its documented self-hosted MySQL service uses a persistent disk, which is available only to paid services. A free Render API also cannot receive private network traffic. For a no-cost test, you must separately obtain a real MySQL server that is reachable from the public internet and accepts Render's outbound connection; never expose a database without provider-supported network restrictions and TLS. If you do not already have such a server, create one with a provider/account you select (possibly paid), or run Render's MySQL template and use paid Render services. Do not substitute PostgreSQL.
+The backend Dockerfile copies `backend/` and the Maven wrapper from the repository root. Keep its service root directory at `/` and its Docker context at `.`. Render routes requests to the API on `PORT`; the service sets `PORT=8080` to match the image's exposed port, and Spring Boot binds to `0.0.0.0`.
 
-Render's documented MySQL template is a private Docker service with a 10 GB disk mounted at `/var/lib/mysql`; it uses MySQL 8 and is reachable as an internal host such as `mysql-service-name:3306` from services on Render's private network. The managed disk and paid service have a cost; confirm current pricing in your Render dashboard. Configure regular `mysqldump` backups. See [Render's MySQL deployment guide](https://render.com/docs/deploy-mysql), [persistent disk limits](https://render.com/docs/disks), and [free instance limitations](https://render.com/docs/free).
+## Deploy from the Blueprint
 
-## 1. Prepare the existing Git repository
+1. Push the repository to GitHub. In Render select **New > Blueprint**, connect `anandvmuley/school-lms`, and select the branch to deploy (normally `develop`). Render reads root-level `render.yaml` and creates the two services. Review the plan and cost before confirming; the API is a paid `starter` web service in this Blueprint because a school API should not be configured to sleep between requests.
+2. During setup Render requests the API's database values, `CORS_ALLOWED_ORIGINS`, and the portal's `VITE_API_URL`. For the first API deployment, use the temporary CORS value `https://localhost` so the API can start. If Render requests `VITE_API_URL` before it has assigned the API hostname, enter a temporary valid HTTPS value such as `https://school-lms-api.onrender.com/api` so the static build can finish; the portal may not connect yet. After the API is live, copy its actual URL from Render, update `VITE_API_URL` to `<actual-api-url>/api`, and redeploy the portal. Do not leave the temporary value in production.
+3. Copy database settings from the existing Railway MySQL service's public TCP connection details. The internal `*.railway.internal` host cannot be reached from Render. In Railway MySQL **Settings > Networking**, enable Public Access/TCP Proxy and copy the generated public hostname and proxy port. This exposes a database endpoint to the internet; use a dedicated least-privilege MySQL account and a strong password. Railway charges for traffic through its TCP proxy. See [Railway MySQL external connections](https://docs.railway.com/databases/mysql).
+4. Confirm the existing database accepts connections through the proxy and that the app user has privileges from external hosts. Set Render's API `DB_HOST` and `DB_PORT` to the public TCP proxy host and port (not necessarily 3306). Set `DB_NAME`, `DB_USERNAME`, and `DB_PASSWORD` to the real existing database values. Set `DB_SSL_MODE` to the mode supported by that database endpoint (`REQUIRED` only if the endpoint supports TLS; otherwise use the provider's documented setting). Never put database credentials in `render.yaml`, Git, or a frontend variable.
+5. The Blueprint generates `JWT_SECRET` once and sets `SPRING_PROFILES_ACTIVE=production`, `DEMO_DATA_ENABLED=false`, and `PORT=8080`. Keep the generated JWT secret stable after deploys. Check API logs and `/actuator/health`; the app validates the existing schema and does not create or alter it. Do not proceed if database access or schema validation fails.
+6. Once Render has assigned the portal's actual `onrender.com` URL, update the API's `CORS_ALLOWED_ORIGINS` to that exact origin (scheme and host only, no path or trailing slash), plus `https://localhost` for the Capacitor Android WebView. Save and redeploy the API. If Render assigned a different API hostname than the one used for the portal build, update the portal build variable `VITE_API_URL` to `https://<actual-api-host>/api` and redeploy the static site.
+7. Verify the portal login and role-specific pages against the production API. Production intentionally does not seed demo accounts. Provision the first administrator using the project's controlled database process; do not try the development demo credentials.
 
-1. Review `git status` and commit/push the existing project to a GitHub repository you control. Do not commit `.env` files, database credentials, JWT secrets, keystores, or service account files. The repository `.gitignore` keeps local environment files and build outputs out of Git while allowing the example files.
-2. In Render, connect that GitHub repository. No Render account or repository access is assumed by this guide.
+## Environment variables
 
-## 2. Create or select a persistent MySQL 8 database
-
-Use an existing external MySQL 8 service, or manually deploy Render's MySQL template as described in its official guide. For a Render-hosted instance, create a **Private Service** using the MySQL template, set unique `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, and `MYSQL_ROOT_PASSWORD` values, and attach a disk at exactly `/var/lib/mysql`. Never reuse the root account for the application.
-
-Obtain these values from the database provider:
-
-| Application variable | Value |
-| --- | --- |
-| `DB_HOST` | Actual hostname reachable from the backend (Render private service name when using Render's private network) |
-| `DB_PORT` | MySQL port, normally `3306` |
-| `DB_NAME` | Database created for this LMS |
-| `DB_USERNAME` | Dedicated application account |
-| `DB_PASSWORD` | That account's secret password |
-| `DB_SSL_MODE` | `REQUIRED` for a TLS endpoint; choose the provider's documented value if different |
-
-For an external database, verify it has persistent storage, TLS, and a network allow-list that permits the API's egress. Some providers require a public endpoint; some require additional CA configuration. `DB_SSL_MODE` controls the Connector/J `sslMode`, but a provider-specific CA certificate may need separate configuration. Do not enter a made-up hostname or credentials.
-
-For a new, empty MySQL 8 database, manually apply [`backend/schema/mysql-8-schema.sql`](backend/schema/mysql-8-schema.sql) to the database before starting the production API. It contains create-only DDL for the current 12 JPA tables, no application rows, and no drop statements. It does not create the database itself. Review and back up any non-empty database first; the script is a baseline for a fresh schema, not an upgrade migration. For future entity changes, add reviewed migrations before deploying because production Hibernate only validates the schema.
-
-## 3. Create the Render backend Web Service
-
-1. In Render choose **New > Web Service**, select the connected repository, and use the repository root as the root directory.
-2. Choose **Docker** as the runtime. The repository-root `Dockerfile` builds the existing Java 21 Spring Boot API. Keep its Docker start command. Choose a service/network plan that can reach the database (a free Render service cannot receive private-network traffic).
-3. Set Health Check Path to `/actuator/health`.
-4. Under Environment, add the variables below. Store `DB_PASSWORD` and `JWT_SECRET` as secrets. Generate `JWT_SECRET` with at least 32 random UTF-8 bytes and keep it stable across deploys.
+### API (`school-lms-api`)
 
 | Variable | Value |
 | --- | --- |
+| `PORT` | `8080` (Blueprint value; Render can inject/override the port) |
 | `SPRING_PROFILES_ACTIVE` | `production` |
-| `DB_HOST` | Real MySQL hostname |
-| `DB_PORT` | Provider port, usually `3306` |
-| `DB_NAME` | Real LMS database name |
-| `DB_USERNAME` | Dedicated database username |
-| `DB_PASSWORD` | Secret database password |
-| `DB_SSL_MODE` | `REQUIRED` unless the provider documents another Connector/J mode |
-| `JWT_SECRET` | Unique secret of at least 32 bytes |
-| `CORS_ALLOWED_ORIGINS` | Initially `https://localhost`; after creating the static site, add its exact HTTPS origin, comma-separated |
-| `DEMO_RESET_ENABLED` | `false` |
-| `JWT_EXPIRATION_MS` | Optional; defaults to `86400000` (one day) |
-| `FILE_UPLOAD_PATH` | Optional; defaults to `/app/uploads` |
+| `DB_HOST` | Existing Railway MySQL public TCP proxy hostname |
+| `DB_PORT` | Existing Railway MySQL public TCP proxy port |
+| `DB_NAME` | Existing LMS database name |
+| `DB_USERNAME` | Dedicated application DB user |
+| `DB_PASSWORD` | Secret for that application DB user |
+| `DB_SSL_MODE` | Value supported by the selected external endpoint |
+| `JWT_SECRET` | Blueprint-generated secret (keep stable) |
+| `CORS_ALLOWED_ORIGINS` | Exact portal origin and `https://localhost`, comma-separated |
+| `DEMO_DATA_ENABLED` | `false` |
 
-Do not set `PORT`; Render supplies it. The app listens on `${PORT:8080}` and binds to `0.0.0.0`. Production uses Hibernate `ddl-auto=validate`, disables SQL initialization and demo reset, and fails startup if required database/JWT/CORS configuration is absent. The schema is not automatically created or altered. Create the schema from a reviewed backup/migration process before deploying; do not point this at a database whose schema has not been checked.
+Do not set production `ddl-auto=update`; the production profile validates the schema. Take and verify a database backup before applying any schema changes. The backend currently uses reviewed SQL schema/migration files; run only the migration appropriate to the current database version.
 
-5. Initially set `CORS_ALLOWED_ORIGINS=https://localhost` so the backend can start before the frontend URL exists. Deploy and wait for the health check to pass. Copy the actual HTTPS backend URL shown by Render. Do not infer it from the service name.
+### Portal (`school-lms-portal`)
 
-## 4. Create the Render frontend Static Site
+| Variable | Value |
+| --- | --- |
+| `VITE_API_URL` | Actual API URL ending in `/api`, e.g. `https://<actual-api-host>/api` |
 
-1. Choose **New > Static Site**, select the same repository, and set Root Directory to `admin`.
-2. Set Build Command to `npm ci && npm run build` and Publish Directory to `dist`.
-3. Add the build-time variable `VITE_API_URL` with the actual backend HTTPS URL ending in `/api`, for example `https://<actual-backend-host>/api`. Do not include a placeholder or local IP.
-4. Create the site and copy its actual HTTPS origin (scheme and host only).
-5. Add that origin to the backend's `CORS_ALLOWED_ORIGINS`, retaining `https://localhost`, then redeploy the backend. Production rejects wildcard, HTTP, placeholders, and non-HTTPS CORS origins.
+Vite embeds this variable during the build. Changing it requires a new static-site build/deploy. Do not use a Railway URL, localhost, or a private Railway hostname unless that is intentionally the active API.
 
-## 5. Verify database, health, and login
+## Existing mobile app
 
-1. Check the Render backend logs for successful MySQL connection and Hibernate validation. A schema validation error means the production schema does not match the JPA entities; stop and reconcile it with a reviewed, backed-up migration. Do not change production to `ddl-auto=update` as a workaround.
-2. Open `https://<actual-backend-host>/actuator/health`; expect HTTP 200 and an UP status.
-3. Test login against the actual backend URL (PowerShell):
-
-```powershell
-$Backend = Read-Host "Actual HTTPS backend origin"
-$Login = Invoke-RestMethod -Method Post -Uri "$Backend/api/auth/login" -ContentType "application/json" -Body '{"email":"admin@schooldemo.com","password":"Admin@123"}'
-$Login.token
-Invoke-RestMethod -Method Get -Uri "$Backend/api/auth/me" -Headers @{ Authorization = "Bearer $($Login.token)" }
-```
-
-The demo account is seeded only by the `development` profile. It is not created in production, so the demo credentials above will not work on Render. There is currently no production admin bootstrap endpoint. Before launch, use a controlled, audited DBA session after applying the schema baseline: generate a BCrypt hash locally with Spring Security's `BCryptPasswordEncoder`, then insert the first account into `accounts` with `email`, `password_hash`, `role='ADMIN'`, `name`, `phone` (nullable), and `active=1` (use the database's auto-generated `id`). Verify the account can sign in, then remove/revoke the bootstrap DBA access and rotate any temporary credentials. Never put the plaintext password or hash in source control or logs, and never reuse the demo password. The app has no server-side logout/revocation endpoint: clients log out by deleting their locally stored JWT; a token remains valid until expiry unless the signing secret is rotated.
-
-## 6. Capacitor and Android APK
-
-The existing Capacitor config uses `admin/dist`. Set `VITE_API_URL` to the real HTTPS API URL, then from the repository root run:
-
-```powershell
-npm --prefix admin ci
-npm --prefix admin run build
-npx cap sync android
-Set-Location android
-.\gradlew.bat assembleDebug
-```
-
-Debug APK output: `android/app/build/outputs/apk/debug/app-debug.apk`. Test login and an authenticated screen on a device using a different network, with the PC turned off. Android's WebView origin is allowed by the explicit `https://localhost` CORS entry. The release build command is `.\gradlew.bat assembleRelease`; release signing is not configured, so any output is unsigned and is not a production-signed APK. Configure a private signing key through secure CI/secrets before distribution. Do not commit the keystore.
-
-The separate Expo application in `mobile/` is retained; it has its own `EXPO_PUBLIC_API_BASE_URL` configuration and is not what the Capacitor APK packages.
-
-## 7. Uploads and persistence
-
-The current backend declares `FILE_UPLOAD_PATH`, but inspection found no upload controller, multipart handling, or file-writing implementation, and no entity currently stores upload paths. No upload feature has been removed. If upload support is introduced later, Render container storage is ephemeral. Attach a paid persistent disk to the backend and point `FILE_UPLOAD_PATH` under its mount path, or integrate durable object storage. Back up uploaded data independently.
+The Expo project in `mobile/` is not hosted as a Render web service. To build it for the Render API, set `EXPO_PUBLIC_API_BASE_URL` to the actual API URL ending in `/api` and use the app's production build configuration. The APK is still distributed separately. Do not change the mobile API URL to a placeholder or a local-network address for release builds.
 
 ## Troubleshooting
 
-- **Backend health check fails:** inspect startup logs for missing env vars, inaccessible MySQL, TLS/certificate errors, or JPA schema mismatch. Confirm the selected Render plan can reach the database and the health path is exactly `/actuator/health`.
-- **Frontend build says API URL invalid:** set `VITE_API_URL` in the Static Site's build environment to the real HTTPS backend URL ending in `/api`, then redeploy.
-- **Browser CORS error:** set `CORS_ALLOWED_ORIGINS` to the exact frontend origin (no path or trailing slash), comma-separated with `https://localhost`, and redeploy the backend.
-- **Login returns 401:** production does not seed `admin@schooldemo.com`; provision an administrator account first. A 401 from `/api/auth/me` also means the bearer token is missing/expired/invalid.
-- **Authenticated request returns 403:** the account is authenticated but lacks the required role/permission.
-- **Android cannot connect:** rebuild after setting the real HTTPS API URL, run `npx cap sync android`, check device internet access and the backend health endpoint, and confirm the backend CORS list includes `https://localhost`.
-- **Data appears missing after restart:** check whether the MySQL provider has persistent storage and whether the app connects to the intended database. Do not use local container storage for database files.
+- **Blueprint cannot build the API:** confirm the API service uses root directory `/`, Dockerfile `./Dockerfile`, and Docker context `.`. The root Dockerfile needs `backend/`, `.mvn/`, and `mvnw` from the repository root.
+- **API health check fails:** read startup logs. The usual causes are an unreachable Railway TCP proxy, incorrect credentials/privileges, unsupported TLS mode, or an existing database schema that does not match the backend entities.
+- **Portal build rejects API URL:** set `VITE_API_URL` in the static site's build environment to the actual public HTTPS API URL ending with `/api`, then redeploy.
+- **Browser reports CORS:** set `CORS_ALLOWED_ORIGINS` to the portal's exact origin and `https://localhost`, with comma separation, then redeploy the API.
+- **Login fails:** production demo data is disabled. Provision a real administrator account through the documented secure database procedure.
 
-## Current deployment state
+## Local verification before first deploy
 
-This repository is prepared for deployment but is not deployed or verified online by this task. No Render account, GitHub access, live MySQL credentials, service domains, production administrator, or signed Android keystore was supplied. Create the persistent MySQL service first and obtain its real connection details; then follow sections 3–6. Render's official guides: [MySQL](https://render.com/docs/deploy-mysql), [web services](https://render.com/docs/web-services), [static sites](https://render.com/docs/static-sites), [health checks](https://render.com/docs/health-checks), and [environment variables](https://render.com/docs/configure-environment-variables).
+From the repository root, build the portal with a real HTTPS API URL in its build environment. Build the API with Maven or Docker. The Docker build requires the repository root as its context. No production credentials are needed in the repository.
+
+This guide and Blueprint prepare the repository for Render; they do not create Render services, configure Railway's TCP proxy, supply secrets, or perform an online deployment. Those steps require access to the Render and Railway dashboards.

@@ -30,7 +30,7 @@ export default defineConfig(({ command, mode }) => {
       /YOUR-|(?:^|\.)example(?:\.|$)/i.test(host)
     ) {
       throw new Error(
-        "Production builds require VITE_API_URL to be the deployed HTTPS API URL ending in /api. Set it in Railway or copy admin/.env.production.example.",
+        "Production builds require VITE_API_URL to be the deployed HTTPS API URL ending in /api. Set it in the hosting service's build environment.",
       );
     }
   }
