@@ -621,6 +621,7 @@ export default function App() {
             (user.role === "ADMIN" ? (
               <PeoplePage
                 accounts={accounts}
+                students={students}
                 onSaved={async () => {
                   await reload();
                   setToast("Account directory updated.");
@@ -2149,9 +2150,11 @@ function MessagesPage({
 }
 function PeoplePage({
   accounts,
+  students,
   onSaved,
 }: {
   accounts: Account[];
+  students: Student[];
   onSaved: () => void;
 }) {
   const [name, setName] = useState(""),
@@ -2266,6 +2269,9 @@ function PeoplePage({
                   {a.email} · {a.phone || "No phone added"}
                 </p>
                 <small>{a.role}</small>
+                {a.role === "TEACHER" && (
+                  <TeacherClassManager teacher={a} students={students} />
+                )}
               </div>
               <button className="danger-quiet" onClick={() => remove(a)}>
                 Delete
@@ -2279,6 +2285,143 @@ function PeoplePage({
     </div>
   );
 }
+
+type TeacherClassAssignment = {
+  id: number;
+  className: string;
+  division: string;
+};
+
+function TeacherClassManager({
+  teacher,
+  students,
+}: {
+  teacher: Account;
+  students: Student[];
+}) {
+  const classOptions = Array.from(
+    new Map(
+      students.map((student) => [
+        `${student.className}\u0000${student.division}`,
+        { className: student.className, division: student.division },
+      ]),
+    ).values(),
+  ).sort((left, right) =>
+    `${left.className}-${left.division}`.localeCompare(
+      `${right.className}-${right.division}`,
+      undefined,
+      { numeric: true },
+    ),
+  );
+  const [assignments, setAssignments] = useState<TeacherClassAssignment[]>([]);
+  const [selectedClass, setSelectedClass] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    api<TeacherClassAssignment[]>(`/teachers/${teacher.id}/classes`)
+      .then((result) => {
+        if (active) setAssignments(result);
+      })
+      .catch((err) => {
+        if (active) {
+          setError(err instanceof Error ? err.message : "Could not load teacher classes");
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [teacher.id]);
+
+  async function addClass(event: React.FormEvent) {
+    event.preventDefault();
+    const selected = classOptions.find(
+      (option) => `${option.className}\u0000${option.division}` === selectedClass,
+    );
+    if (!selected) return;
+    setBusy(true);
+    setError("");
+    try {
+      const assignment = await api<TeacherClassAssignment>(
+        `/teachers/${teacher.id}/classes`,
+        {
+          method: "POST",
+          body: JSON.stringify(selected),
+        },
+      );
+      setAssignments((current) => [...current, assignment]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not assign this class");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeClass(assignment: TeacherClassAssignment) {
+    setBusy(true);
+    setError("");
+    try {
+      await api(`/teachers/${teacher.id}/classes/${assignment.id}`, { method: "DELETE" });
+      setAssignments((current) => current.filter((item) => item.id !== assignment.id));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not remove this class");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="teacher-class-manager" aria-label={`Classes for ${teacher.name}`}>
+      <strong>Assigned classes</strong>
+      {assignments.length > 0 ? (
+        <div className="teacher-class-list">
+          {assignments.map((assignment) => (
+            <span className="class-chip" key={assignment.id}>
+              {assignment.className}-{assignment.division}
+              <button
+                type="button"
+                aria-label={`Remove class ${assignment.className}-${assignment.division}`}
+                disabled={busy}
+                onClick={() => removeClass(assignment)}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      ) : (
+        <small>No classes assigned. Teachers only see students in assigned classes.</small>
+      )}
+      {classOptions.length > 0 ? (
+        <form className="teacher-class-form" onSubmit={addClass}>
+          <select
+            aria-label={`Choose a class for ${teacher.name}`}
+            value={selectedClass}
+            onChange={(event) => setSelectedClass(event.target.value)}
+          >
+            <option value="">Select a student class</option>
+            {classOptions.map((option) => {
+              const key = `${option.className}\u0000${option.division}`;
+              return (
+                <option key={key} value={key}>
+                  {option.className}-{option.division}
+                </option>
+              );
+            })}
+          </select>
+          <button className="secondary" disabled={busy || !selectedClass}>
+            {busy ? "Saving…" : "Assign class"}
+          </button>
+        </form>
+      ) : (
+        <small>Add a student first to make a class available for assignment.</small>
+      )}
+      {error && <div className="form-error">{error}</div>}
+    </section>
+  );
+}
+
 function StudentEditor({
   student,
   busRoutes,

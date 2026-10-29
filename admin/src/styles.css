@@ -949,6 +949,54 @@ tbody tr:last-child td {
   font-size: 9px;
   color: #9ca8b4;
 }
+.teacher-class-manager {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 11px;
+  border: 1px solid #e9eef3;
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+.teacher-class-manager > strong {
+  font-size: 10px;
+}
+.teacher-class-manager > small {
+  color: #8291a0;
+  font-size: 9px;
+}
+.teacher-class-list,
+.teacher-class-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+.teacher-class-list .class-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.teacher-class-list button {
+  padding: 0;
+  border: 0;
+  color: #72869a;
+  background: transparent;
+  cursor: pointer;
+}
+.teacher-class-form select {
+  min-width: 150px;
+  padding: 8px;
+  border: 1px solid #e0e7ed;
+  border-radius: 6px;
+  color: #344b61;
+  background: white;
+  font-size: 10px;
+}
+.teacher-class-form .secondary {
+  padding: 8px 11px;
+  font-size: 10px;
+}
 .due {
   display: grid;
   gap: 5px;
