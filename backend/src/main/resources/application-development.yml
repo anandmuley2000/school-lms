@@ -16,6 +16,10 @@ spring:
     init:
       mode: never
 
+  flyway:
+    # Preserve the existing local ddl-auto=update workflow; production uses Flyway.
+    enabled: false
+
 app:
   jwt:
     secret: ${JWT_SECRET}

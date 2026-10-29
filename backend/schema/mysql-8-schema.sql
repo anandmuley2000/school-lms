@@ -1,6 +1,6 @@
--- Create-only baseline for an empty MySQL 8 database.
--- Schema-only export; contains no application rows and no DROP statements.
--- Apply manually before starting the production profile; Hibernate uses ddl-auto=validate.
+-- Reference schema for the core tables represented by Flyway V1.
+-- Production startup runs backend/schema/migrations/V1__initial_schema.sql and
+-- subsequent migrations automatically; do not manually apply this reference file.
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;

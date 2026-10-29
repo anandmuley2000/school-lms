@@ -54,6 +54,13 @@ class ProductionConfigurationTest {
       assertEquals(
           "health",
           context.getEnvironment().getProperty("management.endpoints.web.exposure.include"));
+      assertEquals("true", context.getEnvironment().getProperty("spring.flyway.enabled"));
+      assertEquals(
+          "classpath:db/migration",
+          context.getEnvironment().getProperty("spring.flyway.locations"));
+      assertEquals(
+          "false",
+          context.getEnvironment().getProperty("spring.flyway.baseline-on-migrate"));
     }
   }
 
@@ -152,6 +159,7 @@ class ProductionConfigurationTest {
       assertEquals(
           "false",
           context.getEnvironment().getProperty("app.demo.reset-enabled"));
+      assertEquals("false", context.getEnvironment().getProperty("spring.flyway.enabled"));
     }
   }
 }
